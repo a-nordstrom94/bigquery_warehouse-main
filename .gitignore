@@ -7,3 +7,4 @@ logs/
 *.json
 keys/
 __pycache__/
+config/
