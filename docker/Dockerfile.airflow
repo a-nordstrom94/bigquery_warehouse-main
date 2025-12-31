@@ -1,0 +1,27 @@
+FROM apache/airflow:2.10.4-python3.11
+
+USER root
+# Install basic build tools (sometimes needed for dbt-bigquery dependencies)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Install dbt and Google providers compatible with Airflow 2.10.4
+# We use constraints to ensure no accidental Airflow 3 upgrades
+RUN pip install --upgrade pip
+RUN pip install \
+    "apache-airflow[celery,google,http]==2.10.4" \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.4/constraints-3.11.txt"
+
+# Install your specific project dependencies
+RUN pip install \
+    dbt-core==1.8.0 \
+    dbt-bigquery==1.8.0 \
+    pandas==2.1.4 \
+    google-cloud-bigquery==3.17.2
+
+# Set environment variable for BigQuery auth
+ENV GOOGLE_APPLICATION_CREDENTIALS=/usr/app/keys/service_account.json

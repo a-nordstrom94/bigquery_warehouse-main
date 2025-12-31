@@ -1,0 +1,9 @@
+target/
+dbt_packages/
+logs/
+.env
+!.env.example
+*.bak
+*.json
+keys/
+__pycache__/

@@ -1,0 +1,8 @@
+# NOTE: For production environment, all dependencies are managed via Dockerfile.
+# This file is serves as a high-level overview of dependencies for development purposes.
+pandas
+dbt-core
+dbt-bigquery
+apache-airflow
+apache-airflow-providers-google
+psycopg2-binary
