@@ -93,7 +93,7 @@ This project implements a "Tests-First" approach to data engineering. Every run 
 ### Data Lineage
 The following lineage graph illustrates the flow from raw source tables (Bronze) through staging (Silver) to the final dimensional models (Gold).
 
-![dbt Lineage Graph](./assets/dbt_lineage_graph.png)
+![dbt Lineage Graph](./assets/dbt_lineage_graph.jpg)
 
 ---
 
@@ -101,9 +101,9 @@ The following lineage graph illustrates the flow from raw source tables (Bronze)
 The final output is an interactive Looker Studio dashboard.
 
 * **Key Metrics:** Total Revenue, Average Order Value (AOV), Customer Lifetime Value (CLV), and Delivery Performance.
-* **Dashboard Link:** [View Live Dashboard]([https://your-public-link-here](https://lookerstudio.google.com/u/2/reporting/333b49a4-5784-4e96-8056-d910960ab4d1))
+* **Dashboard Link:** [View Live Dashboard](https://lookerstudio.google.com/u/2/reporting/333b49a4-5784-4e96-8056-d910960ab4d1)
 
-[![Looker Studio Dashboard Preview](./assets/dashboard_preview.png)](https://your-public-link-here)
+[![Looker Studio Dashboard Preview](./assets/dashboard_looker.jpg)](https://lookerstudio.google.com/u/2/reporting/333b49a4-5784-4e96-8056-d910960ab4d1)
 *Click the image above to view the interactive dashboard.*
 
 ---
