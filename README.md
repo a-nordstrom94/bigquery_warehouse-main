@@ -1,5 +1,6 @@
 # Olist E-commerce ELT Pipeline
-### *Orchestrated Data Warehouse with Airflow, dbt, and BigQuery*
+### *Analytics Engineering Warehouse for E-commerce Metrics*
+A production-style analytics warehouse built with dbt at the core, modeling raw transactional data into tested, business-ready dimensional tables for BI and decision making.
 
 [![Airflow 2.10.4](https://img.shields.io/badge/Airflow-2.10.4-017CEE?style=flat&logo=Apache%20Airflow)](https://airflow.apache.org/)
 [![dbt](https://img.shields.io/badge/dbt-1.8+-FF694B?style=flat&logo=dbt)](https://www.getdbt.com/)
@@ -7,12 +8,7 @@
 
 ## Overview
 This project implements a complete ELT pipeline for the Olist Brazilian E-commerce dataset. It automates the journey from raw CSV data to business-ready analytical "Gold" tables/views, providing a scalable foundation for BI reporting in Looker Studio.
-Under assets images from the project can be found
-
-## Airflow 3.x vs 2.x
-Originally architected for Airflow 3.x, I made the strategic decision to downgrade to Airflow 2.10.4 after identifying critical stability issues in the 3.x provider ecosystem regarding Docker volume mounting on Windows. This pivot ensured a robust, production-grade environment and highlights my focus on choosing "the right tool for the job" over "the newest tool available."
-
----
+Visual artifacts from dbt, Airflow, and the BI dashboard are included in the /assets directory.
 
 ## Architecture
 
@@ -26,6 +22,21 @@ Originally architected for Airflow 3.x, I made the strategic decision to downgra
 5.  **Visualization:** Looker Studio provides real-time business insights.
 
 ---
+
+## Data Modeling (dbt)
+The transformation layer is built on a modular structure to ensure data quality and lineage:
+
+* **`stg_` models:** Light cleaning and renaming of raw inputs.
+* **`fct_` / `dim_` models:** Final business entities (Orders, Customers, Products) organized in a Star Schema at defined analytical grains.
+
+## Data Quality
+This project implements a "Tests-First" approach to data engineering. Every run is automatically validated against 35+ data tests to ensure:
+* **Integrity:** No duplicate orders or null customer IDs.
+* **Consistency:** All Fact table records have valid matching Dimension records.
+* **Business Logic:** Unit prices and review scores remain within expected ranges.
+
+---
+
 
 ## 🔗 Service Access
 | Service | URL | Credentials |
@@ -76,20 +87,6 @@ Originally architected for Airflow 3.x, I made the strategic decision to downgra
 
 ---
 
-## Data Modeling (dbt)
-The transformation layer is built on a modular structure to ensure data quality and lineage:
-
-* **`stg_` models:** Light cleaning and renaming of raw inputs.
-* **`fct_` / `dim_` models:** Final business entities (Orders, Customers, Products) organized in a Star Schema.
-
-## Data Quality
-This project implements a "Tests-First" approach to data engineering. Every run is automatically validated against 35+ data tests to ensure:
-* **Integrity:** No duplicate orders or null customer IDs.
-* **Consistency:** All Fact table records have valid matching Dimension records.
-* **Business Logic:** Unit prices and review scores remain within expected ranges.
-
----
-
 ### Data Lineage
 The following lineage graph illustrates the flow from raw source tables (Bronze) through staging (Silver) to the final dimensional models (Gold).
 
@@ -113,6 +110,11 @@ The final output is an interactive Looker Studio dashboard.
 * **Stability > Novelty:** Decided to pin Airflow to 2.10.4 for production stability over the experimental 3.x release.
 * **Container Networking:** Resolved complex volume mapping hurdles between Windows host and Linux containers.
 * **Secret Management:** Securely handled GCP credentials using environment variables and volume mounting to prevent sensitive data leaks.
+
+---
+
+## Airflow 3.x vs 2.x
+Originally architected for Airflow 3.x, I made the strategic decision to downgrade to Airflow 2.10.4 after identifying critical stability issues in the 3.x provider ecosystem regarding Docker volume mounting on Windows. This pivot ensured a robust, production-grade environment and highlights my focus on choosing "the right tool for the job" over "the newest tool available."
 
 ---
 
