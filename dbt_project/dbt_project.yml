@@ -22,7 +22,7 @@ clean-targets:
 models:
   dbt_project:
     silver:
-      +materialized: table
+      +materialized: view
       +schema: olist_silver
     gold:
       +materialized: table
