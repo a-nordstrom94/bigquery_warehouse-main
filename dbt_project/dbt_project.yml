@@ -3,6 +3,7 @@
 # name or the intended use of these models
 name: 'dbt_project'
 version: '1.0.0'
+config-version: 2
 
 # This setting configures which "profile" dbt uses for this project.
 profile: 'dbt_project'
@@ -22,7 +23,7 @@ clean-targets:
 models:
   dbt_project:
     silver:
-      +materialized: table
+      +materialized: view
       +schema: olist_silver
     gold:
       +materialized: table
