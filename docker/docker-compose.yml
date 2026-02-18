@@ -1,25 +1,61 @@
 x-airflow-common: &airflow-common
   image: custom-airflow-2.10.4
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
   env_file:
     - .env
-  user: "${AIRFLOW_UID:-50000}:0"
+  user: "${AIRFLOW_UID:-1000}:0"
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CORE__LOAD_EXAMPLES: "false" # Set this to true if you want examples
-    AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS: "False" # Set this to true if you want examples
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__LOAD_DEFAULT_CONNECTIONS: "False"
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    
+    # Core parallelism
+    AIRFLOW__CORE__PARALLELISM: 8
+    AIRFLOW__CORE__DAG_CONCURRENCY: 4
+    AIRFLOW__CORE__MAX_ACTIVE_RUNS_PER_DAG: 4
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: 4
+    
+    # Scheduler settings - CRITICAL FOR QUEUE PROCESSING
+    AIRFLOW__SCHEDULER__SCHEDULER_HEARTBEAT_SEC: 5
+    AIRFLOW__SCHEDULER__MIN_FILE_PROCESS_INTERVAL: 30
+    AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: 30
+    AIRFLOW__SCHEDULER__PARSING_PROCESSES: 2
+    AIRFLOW__SCHEDULER__MAX_THREADS: 4
+    AIRFLOW__SCHEDULER__MAX_TIS_PER_QUERY: 512
+    AIRFLOW__SCHEDULER__SCHEDULE_AFTER_TASK_EXECUTION: "true"
+    AIRFLOW__SCHEDULER__USE_JOB_SCHEDULE: "true"
+    AIRFLOW__SCHEDULER__MAX_DAGRUNS_TO_CREATE_PER_LOOP: 10
+    AIRFLOW__SCHEDULER__MAX_DAGRUNS_PER_LOOP_TO_SCHEDULE: 20
+    AIRFLOW__SCHEDULER__IDLE_SLEEP_TIME: 1
+    AIRFLOW__SCHEDULER__ORPHANED_TASKS_CHECK_INTERVAL: 300
+    
+    # Database pool
+    AIRFLOW__DATABASE__SQL_ALCHEMY_POOL_SIZE: 10
+    AIRFLOW__DATABASE__SQL_ALCHEMY_MAX_OVERFLOW: 20
+    AIRFLOW__DATABASE__SQL_ALCHEMY_POOL_RECYCLE: 3600
+    
+    # Your project settings
     GCP_PROJECT_ID: ${GCP_PROJECT_ID}
     GCS_BUCKET: ${GCS_BUCKET}
     BRONZE_DATASET: ${BRONZE_DATASET}
+    SILVER_DATASET: ${SILVER_DATASET}
+    GOLD_DATASET: ${GOLD_DATASET}
+    DBT_DATASET: ${DBT_DATASET}
+    GCP_LOCATION: ${GCP_LOCATION}
+    DBT_PROJECT_DIR: /usr/app/dbt_project
     GOOGLE_APPLICATION_CREDENTIALS: /usr/app/keys/service_account.json
     AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: 'google-cloud-platform://?key_path=/usr/app/keys/service_account.json'
   volumes:
-    - ../airflow/dags:/opt/airflow/dags
-    - ../airflow/logs:/opt/airflow/logs
-    - ../airflow/plugins:/opt/airflow/plugins
-    - ./keys:/usr/app/keys:ro
-    - ../dbt_project:/usr/app/dbt_project
+    - ../airflow/dags:/opt/airflow/dags:z
+    - ../airflow/logs:/opt/airflow/logs:z
+    - ../airflow/plugins:/opt/airflow/plugins:z
+    - ./keys:/usr/app/keys:ro,z
+    - ../dbt_project:/usr/app/dbt_project:z
   depends_on:
     postgres:
       condition: service_healthy
@@ -37,12 +73,10 @@ services:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
+    restart: always
 
   airflow-webserver:
     <<: *airflow-common
-    build:
-      context: .
-      dockerfile: Dockerfile.airflow
     command: webserver
     ports:
       - "8080:8080"
@@ -51,10 +85,27 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
 
   airflow-init:
     <<: *airflow-common
@@ -62,44 +113,73 @@ services:
     command:
       - -c
       - |
-        echo "Initializing database..."
+        echo "=== Airflow Initialization Starting ==="
+        echo "Waiting for database..."
+        sleep 5
+        
+        echo "Initializing Airflow database..."
         airflow db init
+        
+        echo "Upgrading database schema..."
+        airflow db upgrade
+        
+        echo "Creating admin user..."
         airflow users create \
-          --username airflow \
-          --password airflow \
-          --firstname Admin \
-          --lastname Admin \
-          --role Admin \
-          --email admin@example.com || true
+          --username "${AIRFLOW_ADMIN_USERNAME:-admin}" \
+          --password "${AIRFLOW_ADMIN_PASSWORD:-admin}" \
+          --firstname "${AIRFLOW_ADMIN_FIRSTNAME:-Admin}" \
+          --lastname "${AIRFLOW_ADMIN_LASTNAME:-User}" \
+          --role "${AIRFLOW_ADMIN_ROLE:-Admin}" \
+          --email "${AIRFLOW_ADMIN_EMAIL:-admin@example.com}" || echo "User already exists"
+        
+        echo "Setting pool slots..."
+        airflow pools set default_pool 10 'Default pool' || true
+        
+        echo "=== Initialization Complete ==="
+        airflow users list
+        airflow pools list
+    restart: on-failure
 
   dbt:
     image: custom-dbt-image
     build:
-      context: .
-      dockerfile: Dockerfile.dbt
+      context: ..
+      dockerfile: docker/Dockerfile.dbt
+    user: "1000:0"
+    env_file:
+      - .env
     volumes:
-      - ../dbt_project:/usr/app/dbt_project
-      - ./keys:/usr/app/keys:ro
+      - ../dbt_project:/usr/app/dbt_project:z
+      - ./keys:/usr/app/keys:ro,z
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /usr/app/keys/service_account.json
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      DBT_DATASET: ${DBT_DATASET}
+      GCP_LOCATION: ${GCP_LOCATION}
+      GOLD_DATASET: ${GOLD_DATASET}
     command: sleep infinity
 
   dbt-docs:
     image: custom-dbt-image
+    user: "1000:0"
     container_name: dbt-docs
+    env_file:
+      - .env
     volumes:
-      - ../dbt_project:/usr/app/dbt_project
-      - ./keys:/usr/app/keys:ro
+      - ../dbt_project:/usr/app/dbt_project:z
+      - ./keys:/usr/app/keys:ro,z
     environment:
-      GOOGLE_APPLICATION_CREDENTIALS: /usr/app/keys/service_account.json
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      DBT_DATASET: ${DBT_DATASET}
+      GOLD_DATASET: ${GOLD_DATASET}
+      GCP_LOCATION: ${GCP_LOCATION}
+      GOOGLE_APPLICATION_CREDENTIALS: /usr/app/keys/service_account.json
     ports:
       - "8081:8081"
     working_dir: /usr/app/dbt_project
-    # This generates the files and then hosts them on 8081
     command: >
-      bash -c "dbt docs generate --profiles-dir . && dbt docs serve --profiles-dir . --port 8081 --host 0.0.0.0"
-
+      bash -c "dbt deps --profiles-dir . && 
+           (dbt docs generate --profiles-dir . || echo 'Catalog build failed - waiting for first DAG run') && 
+           python3 -m http.server 8081 --directory target --bind 0.0.0.0"
 volumes:
   postgres-db-volume:

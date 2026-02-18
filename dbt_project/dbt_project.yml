@@ -1,5 +1,6 @@
 name: 'dbt_project'
 version: '1.0.0'
+config-version: 2
 
 profile: 'dbt_project'
 
@@ -16,14 +17,6 @@ clean-targets:
 
 models:
   dbt_project:
-<<<<<<< Updated upstream
-    silver:
-      +materialized: table
-      +schema: olist_silver
-    gold:
-      +materialized: table
-      +schema: olist_gold
-=======
     # Staging models - materialized as views in default dataset (olist_silver)
     staging:
       +materialized: view
@@ -53,4 +46,3 @@ models:
 
       analytics:
         +materialized: table
->>>>>>> Stashed changes

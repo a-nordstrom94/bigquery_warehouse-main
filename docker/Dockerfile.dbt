@@ -12,7 +12,16 @@ WORKDIR /usr/app
 
 # Install Python dependencies
 RUN pip install --upgrade pip
-RUN pip install dbt-core dbt-bigquery
+RUN pip install dbt-core==1.8.0 dbt-bigquery==1.8.0
+
+# Copy dbt project files (now relative to project root)
+COPY dbt_project /usr/app/dbt_project
+
+# Set working directory to dbt project
+WORKDIR /usr/app/dbt_project
+
+# Install dbt packages
+RUN dbt deps
 
 # Set environment variable for BigQuery auth
 ENV GOOGLE_APPLICATION_CREDENTIALS=/usr/app/keys/service_account.json
