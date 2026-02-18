@@ -76,7 +76,7 @@ All 9 Olist source tables are declared in [`_olist__sources.yml`](dbt_project/mo
 
 ## Data Quality
 
-A **tests-first** approach ensures every pipeline run is validated against **35+ data tests**:
+A **tests-first** approach ensures every pipeline run is validated against **60+ data tests**:
 
 | Category | Examples |
 |:---|:---|
