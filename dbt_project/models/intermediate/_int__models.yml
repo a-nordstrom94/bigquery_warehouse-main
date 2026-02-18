@@ -1,0 +1,161 @@
+version: 2
+
+models:
+  - name: int_orders__payments_pivoted
+    description: |
+      Order-level payment aggregations including total payment value,
+      payment count, and payment methods used.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        tests:
+          - not_null
+          - unique
+      - name: total_payment_value
+        description: Sum of all payment values for the order
+        tests:
+          - not_null
+      - name: payment_count
+        description: Number of payment transactions for the order
+      - name: max_installments
+        description: Maximum number of installments used across payments
+      - name: payment_methods_used
+        description: Comma-separated list of payment methods used
+
+  - name: int_orders__items_aggregated
+    description: |
+      Order-level item aggregations including product count,
+      total item value, and freight costs.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        tests:
+          - not_null
+          - unique
+      - name: unique_products
+        description: Count of distinct products in the order
+      - name: total_item_value
+        description: Sum of all item prices (excluding freight)
+      - name: total_freight_value
+        description: Sum of all freight charges
+      - name: avg_item_price
+        description: Average price per item
+
+  - name: int_orders__enriched
+    description: |
+      Fully enriched order data combining orders, payments, and items.
+      This is the primary intermediate model for order analytics.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer who placed the order
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__customers')
+              field: customer_id
+      - name: order_status
+        description: Current order status
+      - name: order_purchase_timestamp
+        description: When the order was placed
+      - name: order_delivered_customer_date
+        description: When order was delivered to customer
+      - name: total_payment_value
+        description: Total amount paid for the order
+      - name: payment_count
+        description: Number of payment transactions
+      - name: payment_methods_used
+        description: Payment methods used (comma-separated)
+      - name: unique_products
+        description: Number of unique products ordered
+      - name: total_item_value
+        description: Sum of item prices
+      - name: total_freight_value
+        description: Sum of freight charges
+      - name: delivery_days
+        description: Days from purchase to delivery
+      - name: delivery_status
+        description: "'On Time' or 'Delayed' based on estimated delivery"
+
+  - name: int_customers__order_history
+    description: |
+      Customer-level order history aggregations including order counts,
+      total spend, and average order value.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        tests:
+          - not_null
+          - unique
+      - name: total_orders
+        description: Total number of orders placed
+      - name: total_spend
+        description: Lifetime spend across all orders
+      - name: avg_order_value
+        description: Average order value
+      - name: first_order_date
+        description: Date of first order
+      - name: last_order_date
+        description: Date of most recent order
+      - name: days_since_first_order
+        description: Days between first and last order
+
+  - name: int_products__with_categories
+    description: |
+      Products enriched with translated category names.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: product_id
+        description: Unique product identifier
+        tests:
+          - not_null
+          - unique
+      - name: product_category_name
+        description: Original Portuguese category name
+      - name: product_category_name_english
+        description: English translation of category name
+      - name: product_name_length
+        description: Length of product name
+      - name: product_description_length
+        description: Length of product description
+      - name: product_photos_qty
+        description: Number of product photos
+      - name: product_weight_g
+        description: Product weight in grams
+      - name: product_length_cm
+        description: Product length in cm
+      - name: product_height_cm
+        description: Product height in cm
+      - name: product_width_cm
+        description: Product width in cm
+
+  - name: int_sellers__with_locations
+    description: |
+      Sellers enriched with geolocation data.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: seller_id
+        description: Unique seller identifier
+        tests:
+          - not_null
+          - unique
+      - name: seller_zip_code_prefix
+        description: Seller ZIP code prefix
+      - name: seller_city
+        description: Seller city
+      - name: seller_state
+        description: Seller state (2-letter code)

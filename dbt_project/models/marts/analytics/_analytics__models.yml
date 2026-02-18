@@ -1,0 +1,136 @@
+version: 2
+
+models:
+  - name: customer_metrics
+    description: "Comprehensive customer analytics including purchase frequency, spending habits, and review history."
+    config:
+      materialized: table
+      schema: gold
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        tests:
+          - not_null
+          - unique
+      - name: customer_city
+        description: City associated with the customer's primary address.
+      - name: customer_state
+        description: State associated with the customer
+      - name: total_orders
+        description: Total number of orders placed by this customer.
+      - name: first_order_date
+        description: Timestamp of the customer's first order.
+      - name: last_order_date
+        description: Timestamp of the customer's most recent order.
+      - name: customer_lifetime_days
+        description: Number of days between the customer's first and last order.
+      - name: total_spent
+        description: The total gross amount paid by the customer, including freight costs and any installments.
+      - name: avg_order_value
+        description: Average value per order
+      - name: delivered_orders
+        description: How many orders were delivered
+      - name: canceled_orders
+        description: How many orders were canceled 
+      - name: cancellation_rate
+        description: Ratio of canceled orders to total orders.
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1
+      - name: total_reviews
+        description: Total number of reviews submitted by the customer
+      - name: avg_review_score
+        description: Average review score given by the customer (1-5)
+      - name: customer_segment
+        description: "Classification based on purchase frequency: loyal 5+, repeat 2-4 orders, one-time 1 order."
+
+  - name: product_performance
+    description: Product sales performance and popularity metrics
+    config:
+      materialized: table
+      schema: gold
+    columns:
+      - name: product_id
+        description: Unique product identifier.
+        tests:
+          - not_null
+          - unique
+      - name: product_category_name_english
+        description: English translation of the product category.
+      - name: product_weight_g
+        description: Weight of the product in grams.
+      - name: product_volume_cm3
+        description: Calculated volume of the product in cubic centimeters.
+      - name: total_orders
+        description: Number of distinct orders containing this product.
+      - name: total_items_sold
+        description: Total quantity of this product sold (sum of line items).
+      - name: total_revenue
+        description: Total gross revenue from product sales (excluding freight).
+      - name: avg_price
+        description: Average unit price of the product across all sales.
+      - name: total_freight
+        description: Total freight costs associated with shipping this product.
+      - name: total_revenue_with_freight
+        description: Combined total of product price and freight value.
+      - name: unique_sellers
+        description: Number of distinct sellers offering this product.
+      - name: first_sale_date
+        description: Timestamp of the first time this product was purchased.
+      - name: last_sale_date
+        description: Timestamp of the most recent purchase.
+      - name: product_performance_tier
+        description: "Classification based on order volume: Bestseller (100+), Popular (50+), Moderate (10+), or Low Volume."
+      - name: created_at
+        description: Audit column indicating when this record was created.
+      - name: updated_at
+        description: Audit column indicating the last time this record was updated.
+
+  - name: seller_performance
+    description: "Detailed seller analytics covering sales volume, revenue, product diversity, and geographic reach."
+    config:
+      materialized: table
+      schema: gold
+    columns:
+      - name: seller_id
+        description: "Unique seller identifier."
+        tests:
+          - not_null
+          - unique
+      - name: seller_city
+        description: "City where the seller is registered."
+      - name: seller_state
+        description: "State (2-letter code) where the seller is registered."
+      - name: seller_lat
+        description: "Latitude coordinate of the seller's location."
+      - name: seller_lng
+        description: "Longitude coordinate of the seller's location."
+      - name: total_orders
+        description: "Total number of distinct orders fulfilled by this seller."
+      - name: total_items_sold
+        description: "Total quantity of items sold."
+      - name: total_revenue
+        description: "Total gross revenue generated (sum of item prices, excluding freight)."
+      - name: avg_item_price
+        description: "Average price per item sold by this seller."
+      - name: total_freight
+        description: "Total freight value collected for orders from this seller."
+      - name: unique_products_sold
+        description: "Count of distinct products in the seller's catalog that have sold at least once."
+      - name: unique_categories
+        description: "Number of unique product categories served by the seller."
+      - name: unique_customers
+        description: "Number of unique customers who have purchased from this seller."
+      - name: first_sale_date
+        description: "Timestamp of the seller's first sale in the dataset."
+      - name: last_sale_date
+        description: "Timestamp of the seller's most recent sale."
+      - name: days_active
+        description: "Number of days between the seller's first and most recent sale."
+      - name: seller_performance_tier
+        description: "Revenue-based classification: Top Seller (10k+), High Performer (5k+), Average (1k+), or New/Low Volume."
+      - name: created_at
+        description: "Audit column: Record creation timestamp."
+      - name: updated_at
+        description: "Audit column: Record last update timestamp."

@@ -1,13 +1,8 @@
-# Name your project! Project names should contain only lowercase characters
-# and underscores. A good package name should reflect your organization's
-# name or the intended use of these models
 name: 'dbt_project'
 version: '1.0.0'
 
-# This setting configures which "profile" dbt uses for this project.
 profile: 'dbt_project'
 
-# These configurations specify where dbt should look for different types of files.
 model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
@@ -21,9 +16,41 @@ clean-targets:
 
 models:
   dbt_project:
+<<<<<<< Updated upstream
     silver:
       +materialized: table
       +schema: olist_silver
     gold:
       +materialized: table
       +schema: olist_gold
+=======
+    # Staging models - materialized as views in default dataset (olist_silver)
+    staging:
+      +materialized: view
+      +schema: null  # Uses default dataset from profiles.yml
+    
+    # Intermediate models - ephemeral 
+    intermediate:
+      +materialized: ephemeral
+    
+    # Marts models - tables in gold dataset
+    marts:
+      +schema: gold
+
+      core:
+        fct_orders:
+          +materialized: incremental
+          +incremental_strategy: merge
+        fct_order_items:
+          +materialized: incremental
+          +incremental_strategy: merge
+        dim_customers:
+          +materialized: table
+        dim_products:
+          +materialized: table
+        dim_sellers:
+          +materialized: table
+
+      analytics:
+        +materialized: table
+>>>>>>> Stashed changes

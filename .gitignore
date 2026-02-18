@@ -2,8 +2,14 @@ target/
 dbt_packages/
 logs/
 .env
+docker/.env
+**/ .env
+keys/
+docker/keys/
 !.env.example
 *.bak
 *.json
 keys/
 __pycache__/
+airflow.cfg
+.user.yml

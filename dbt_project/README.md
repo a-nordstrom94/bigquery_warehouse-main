@@ -1,19 +1,35 @@
-## Data Quality & Validation
-We use dbt's native testing framework to ensure the integrity of the Star Schema.
-- docker exec -it --workdir /usr/app/dbt_project docker-dbt-1 dbt test --profiles-dir .
+# Olist dbt Transformation Layer
+### *Silver & Gold Layer Engineering*
 
-## Validation Results
-Every run is validated against 35+ data tests, including:
+This dbt project handles the transformation of raw Olist e-commerce data into a business-ready dimensional model in Google BigQuery.
 
-Primary Key Integrity: unique and not_null on all surrogate keys.
+---
 
-Relationship Testing: Foreign key validation between Facts and Dimensions.
+## Project Structure & Conventions
 
-Business Logic: Domain-specific tests (e.g., ensuring price > 0 and review_score is 1-5).
+We follow a modular Medallion-style architecture to ensure clean lineage and maintainability:
 
-## Output should be all pass like this:
-20:50:05  Found 15 models, 35 data tests, 9 sources, 525 macros
-20:50:05  Concurrency: 4 threads (target='dev')
-...
-20:50:05  Finished running 35 data tests in 0 hours 0 minutes and 36.26 seconds (36.26s).
-20:50:05  Completed successfully
+| Prefix | Layer | Materialization | Description |
+| :--- | :--- | :--- | :--- |
+| `stg_` | **Silver** | `view` | Source alignment, type casting, and basic cleaning. |
+| `int_` | **Intermediate** | `ephemeral` | Complex joins or pivoted logic (hidden from end-users). |
+| `fct_` | **Gold (Fact)** | `incremental` | Quantitative events (Orders, Items). Uses `merge` strategy. |
+| `dim_` | **Gold (Dim)** | `table` | Descriptive entities (Customers, Products, Sellers). |
+
+---
+
+## Data Quality Framework
+Our testing suite is designed to prevent "Data Drift" and ensure the BI layer remains accurate. 
+
+### **Test Categories**
+1.  **Generic Tests:** `unique`, `not_null`, and `relationships` are applied to all primary and foreign keys across the Gold layer.
+2.  **Validation Tests:** We utilize `dbt-expectations` to enforce business constraints:
+    * `expect_column_values_to_be_between` for review scores (1-5).
+    * `expect_column_min_to_be_at_least` for prices and payment values (0).
+3.  **Custom Macro Tests:**
+    * `test_row_count_match`: A custom audit test to ensure the `Silver -> Gold` transition didn't lose records during filtering.
+
+### **Running Tests**
+To execute the full suite and ensure the warehouse is "Healthy":
+```bash
+docker exec -it docker-dbt-1 bash -c "cd /usr/app/dbt_project && dbt test"

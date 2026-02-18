@@ -1,59 +1,66 @@
 from airflow import DAG
-from airflow import os
-from airflow.utils import timezone
-from airflow.providers.google.cloud.operators.bigquery import BigQueryInsertJobOperator, BigQueryDeleteTableOperator
+import os
+from airflow.providers.google.cloud.operators.bigquery import (
+    BigQueryInsertJobOperator, 
+    BigQueryDeleteTableOperator, 
+    BigQueryCreateEmptyDatasetOperator
+)
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
 from airflow.exceptions import AirflowFailException
 from airflow.decorators import task
-from datetime import timedelta
+from datetime import timedelta, datetime
 
-# ---------------------------
-# Config
-# ---------------------------
-GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID", "your-default-project")
-GCS_BUCKET = os.getenv("GCS_BUCKET", "your-default-bucket")
-BRONZE_DATASET = os.getenv("BRONZE_DATASET", "olist_bronze")
-GCP_CONN_ID = "google_cloud_default"
-
-FILE_MAPPING = {
-    "olist_customers_dataset.csv": "customers",
-    "olist_geolocation_dataset.csv": "geolocations",
-    "olist_order_items_dataset.csv": "order_items",
-    "olist_order_payments_dataset.csv": "order_payments",
-    "olist_order_reviews_dataset.csv": "reviews",
-    "olist_orders_dataset.csv": "orders",
-    "olist_products_dataset.csv": "products",
-    "olist_sellers_dataset.csv": "sellers",
-    "product_category_name_translation.csv": "product_category_name_translation"
-}
+# Centralized imports
+from utils.config import (
+    GCP_PROJECT_ID,
+    GCS_BUCKET,
+    BRONZE_DATASET,
+    GCP_LOCATION,
+    GCP_CONN_ID,
+    FILE_MAPPING
+)
 
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
+    'start_date': datetime(2025, 10, 10), 
     'retries': 1,
     'retry_delay': timedelta(minutes=1),
+    'sla': timedelta(hours=2),
+    'on_failure_callback': lambda context: print(f"Task {context['task_instance'].task_id} failed"),
 }
-
 # ---------------------------
 # DAG
 # ---------------------------
 with DAG(
     dag_id="olist_bronze_ingestion",
     default_args=default_args,
-    start_date=timezone.utcnow() - timedelta(days=1),
+    description="Ingest raw CSV files from GCS into BigQuery bronze layer",
     schedule=None,
     catchup=False,
     max_active_runs=1,
+    tags=['bronze', 'ingestion', 'olist'],
 ) as dag:
+
+    # Ensure dataset exists before starting
+    create_bronze_dataset = BigQueryCreateEmptyDatasetOperator(
+        task_id='create_bronze_dataset',
+        project_id=GCP_PROJECT_ID,
+        dataset_id=BRONZE_DATASET,
+        location=GCP_LOCATION,
+        exists_ok=True,
+        gcp_conn_id=GCP_CONN_ID
+    )
 
     ext_tasks = {}
     bronze_tasks = {}
 
-    # ---------------------------
-    # Create _ext_ tables and Bronze tables
-    # ---------------------------
+    # Parallel Ingestion Loop
     for file_name, table_name in FILE_MAPPING.items():
-        # External table pointing to GCS
+        
+        # ---------------------------
+        # Create _ext_ tables
+        # ---------------------------
         ext_tasks[table_name] = BigQueryInsertJobOperator(
             task_id=f'create_ext_{table_name}',
             configuration={
@@ -76,40 +83,31 @@ with DAG(
             gcp_conn_id=GCP_CONN_ID,
         )
 
-        # Bronze table (Materializing the data)
+        # ---------------------------
+        # Create Bronze tables
+        # ---------------------------
+        select_clause = "*"
         if table_name == "product_category_name_translation":
-            bronze_tasks[table_name] = BigQueryInsertJobOperator(
-                task_id=f'create_bronze_{table_name}',
-                configuration={
-                    "query": {
-                        "query": f"""
-                            CREATE OR REPLACE TABLE `{GCP_PROJECT_ID}.{BRONZE_DATASET}.{table_name}` AS
-                            SELECT 
-                                CAST(string_field_0 AS STRING) AS product_category_name,
-                                CAST(string_field_1 AS STRING) AS product_category_name_english
-                            FROM `{GCP_PROJECT_ID}.{BRONZE_DATASET}._ext_{table_name}`;
-                        """,
-                        "useLegacySql": False,
-                    }
-                },
-                gcp_conn_id=GCP_CONN_ID,
-            )
-        else:
-            bronze_tasks[table_name] = BigQueryInsertJobOperator(
-                task_id=f'create_bronze_{table_name}',
-                configuration={
-                    "query": {
-                        "query": f"""
-                            CREATE OR REPLACE TABLE `{GCP_PROJECT_ID}.{BRONZE_DATASET}.{table_name}` AS
-                            SELECT * FROM `{GCP_PROJECT_ID}.{BRONZE_DATASET}._ext_{table_name}`;
-                        """,
-                        "useLegacySql": False,
-                    }
-                },
-                gcp_conn_id=GCP_CONN_ID,
-            )
+            select_clause = """
+                CAST(string_field_0 AS STRING) AS product_category_name,
+                CAST(string_field_1 AS STRING) AS product_category_name_english
+            """
 
-        ext_tasks[table_name] >> bronze_tasks[table_name]
+        bronze_tasks[table_name] = BigQueryInsertJobOperator(
+            task_id=f'create_bronze_{table_name}',
+            configuration={
+                "query": {
+                    "query": f"""
+                        CREATE OR REPLACE TABLE `{GCP_PROJECT_ID}.{BRONZE_DATASET}.{table_name}` AS
+                        SELECT {select_clause} FROM `{GCP_PROJECT_ID}.{BRONZE_DATASET}._ext_{table_name}`;
+                    """,
+                    "useLegacySql": False,
+                }
+            },
+            gcp_conn_id=GCP_CONN_ID,
+        )
+
+        create_bronze_dataset >> ext_tasks[table_name] >> bronze_tasks[table_name]
 
     # ---------------------------
     # Verify row counts
@@ -126,8 +124,10 @@ with DAG(
             ext_result = client.query(f"SELECT COUNT(*) as cnt FROM {ext_table}").result()
             bronze_result = client.query(f"SELECT COUNT(*) as cnt FROM {bronze_table}").result()
             
-            ext_count = list(ext_result)[0]['cnt']
-            bronze_count = list(bronze_result)[0]['cnt']
+            ext_count = next(ext_result).cnt
+            bronze_count = next(bronze_result).cnt
+
+            print(f"Checking {table_name}: Ext({ext_count}) vs Bronze({bronze_count})")
 
             if ext_count != bronze_count:
                 raise AirflowFailException(
@@ -135,18 +135,18 @@ with DAG(
                 )
 
     verify_task = verify_row_counts()
+    
+    # Wait for all materializations before verifying
     list(bronze_tasks.values()) >> verify_task
 
     # ---------------------------
     # Drop _ext_ tables
     # ---------------------------
-    drop_tasks = {}
     for table_name in FILE_MAPPING.values():
-        drop_tasks[table_name] = BigQueryDeleteTableOperator(
+        drop_task = BigQueryDeleteTableOperator(
             task_id=f'drop_ext_{table_name}',
             deletion_dataset_table=f'{GCP_PROJECT_ID}.{BRONZE_DATASET}._ext_{table_name}',
             gcp_conn_id=GCP_CONN_ID,
             trigger_rule='all_success',
         )
-
-    verify_task >> list(drop_tasks.values())
+        verify_task >> drop_task

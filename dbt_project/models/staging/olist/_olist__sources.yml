@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: olist_bronze
+    description: Raw Olist e-commerce data loaded from GCS
+    schema: "{{ env_var('BRONZE_DATASET', 'olist_bronze') }}"
+    # NOTE: Freshness is configured for theoretical environment. Olist dataset is static.
+    # loaded_at_field: _loaded_at
+    # freshness:
+    #  warn_after: {count: 24, period: hour}
+    #  error_after: {count: 48, period: hour}
+    tables:
+      - name: customers
+        description: Customer demographic data
+        
+      - name: orders
+        description: Order header information
+        
+      - name: order_items
+        description: Line items for each order
+        
+      - name: order_payments
+        description: Payment transactions per order
+        
+      - name: reviews
+        description: Customer reviews and ratings
+        
+      - name: products
+        description: Product catalog
+        
+      - name: sellers
+        description: Seller information
+        
+      - name: geolocations
+        description: Geolocation data for zip codes
+        
+      - name: product_category_name_translation
+        description: Category name translations PT->EN

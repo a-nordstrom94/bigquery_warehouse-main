@@ -1,0 +1,30 @@
+version: 2
+
+exposures:
+  - name: olist_executive_dashboard
+    type: dashboard
+    maturity: medium  # Set to 'high' once you finish the dashboard update!
+    url: "https://lookerstudio.google.com/u/0/reporting/333b49a4-5784-4e96-8056-d910960ab4d1/page/1AiiF"
+    description: >
+      Executive-level view of the Olist ecosystem. 
+      Covers Revenue Trends, Delivery SLAs, Seller Performance, and Customer Lifetime Value.
+    
+    depends_on:
+      # Core Fact Tables
+      - ref('fct_orders')
+      - ref('fct_order_items')
+      
+      # Core Dimension Tables
+      - ref('dim_customers')
+      - ref('dim_products')
+      - ref('dim_sellers')
+      
+      # Specialized Analytics Marts
+      - ref('product_performance')
+      - ref('seller_performance')
+      # Keeping this for now as per your current dashboard setup
+      - ref('customer_metrics')
+
+    owner:
+      name: "Anton Nordström"
+      email: "anton.nordstrom1994@gmail.com" 

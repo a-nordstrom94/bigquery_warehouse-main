@@ -1,0 +1,186 @@
+version: 2
+
+models:
+  - name: stg_olist__customers
+    description: Cleaned customer data from raw Olist source
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        tests:
+          - unique
+          - not_null
+      - name: customer_unique_id
+        description: Unique identifier for the same customer across different orders
+        tests:
+          - not_null
+      - name: customer_zip_code_prefix
+        description: First 5 digits of customer zip code
+      - name: customer_city
+        description: Customer city name
+      - name: customer_state
+        description: Customer state (2-letter code)
+          
+  - name: stg_olist__orders
+    description: Cleaned order header data
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        tests:
+          - unique
+          - not_null
+      - name: customer_id
+        description: Customer who placed the order
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__customers')
+              field: customer_id
+      - name: order_status
+        description: Current order status
+        tests:
+          - accepted_values:
+              values: ['delivered', 'shipped', 'approved', 'canceled', 'unavailable', 'invoiced', 'processing', 'created']
+      - name: order_purchase_timestamp
+        description: Order purchase timestamp
+      - name: order_approved_at
+        description: Order approval timestamp
+      - name: order_delivered_carrier_date
+        description: When order was delivered to carrier
+      - name: order_delivered_customer_date
+        description: When order was delivered to customer
+      - name: order_estimated_delivery_date
+        description: Estimated delivery date
+              
+  - name: stg_olist__order_items
+    description: Cleaned order line items
+    columns:
+      - name: order_id
+        description: Order identifier
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__orders')
+              field: order_id
+      - name: order_item_id
+        description: Sequential item number within order
+      - name: product_id
+        description: Product identifier
+      - name: seller_id
+        description: Seller identifier
+      - name: shipping_limit_date
+        description: Shipping deadline
+      - name: price
+        description: Item price
+        tests:
+          - not_null
+      - name: freight_value
+        description: Freight cost for this item
+        tests:
+          - not_null
+
+  - name: stg_olist__order_payments
+    description: Cleaned order payment data
+    columns:
+      - name: order_id
+        description: Order identifier
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_olist__orders')
+              field: order_id
+      - name: payment_sequential
+        description: Sequential payment number for this order
+      - name: payment_type
+        description: Payment method (credit_card, boleto, voucher, debit_card)
+      - name: payment_installments
+        description: Number of installments
+      - name: payment_value
+        description: Payment amount
+              
+  - name: stg_olist__products
+    description: Cleaned product catalog data
+    columns:
+      - name: product_id
+        description: Unique product identifier
+        tests:
+          - unique
+          - not_null
+      - name: product_category_name
+        description: Product category in Portuguese
+      - name: product_name_length
+        description: Length of product name
+      - name: product_description_length
+        description: Length of product description
+      - name: product_photos_qty
+        description: Number of product photos
+      - name: product_weight_g
+        description: Product weight in grams
+      - name: product_length_cm
+        description: Product length in cm
+      - name: product_height_cm
+        description: Product height in cm
+      - name: product_width_cm
+        description: Product width in cm
+
+  - name: stg_olist__sellers
+    description: Cleaned seller data
+    columns:
+      - name: seller_id
+        description: Unique seller identifier
+        tests:
+          - unique
+          - not_null
+      - name: seller_zip_code_prefix
+        description: Seller zip code prefix
+      - name: seller_city
+        description: Seller city
+      - name: seller_state
+        description: Seller state (2-letter code)
+
+  - name: stg_olist__reviews
+    description: Cleaned customer review data
+    columns:
+      - name: review_id
+        description: Review identifier (may have duplicates)
+        tests:
+          - not_null
+      - name: order_id
+        description: Order being reviewed
+        tests:
+          - relationships:
+              to: ref('stg_olist__orders')
+              field: order_id
+      - name: review_score
+        description: Review score (1-5)
+        tests:
+          - not_null
+      - name: review_comment_title
+        description: Review title
+      - name: review_comment_message
+        description: Review message text
+      - name: review_creation_date
+        description: When review was created
+      - name: review_answer_timestamp
+        description: When review was answered
+
+  - name: stg_olist__geolocations
+    description: Geolocation data for zip codes
+    columns:
+      - name: geolocation_zip_code_prefix
+        description: Zip code prefix
+      - name: geolocation_lat
+        description: Latitude
+      - name: geolocation_lng
+        description: Longitude
+      - name: geolocation_city
+        description: City name
+      - name: geolocation_state
+        description: State (2-letter code)
+
+  - name: stg_olist__product_category_translation
+    description: Product category name translations from Portuguese to English
+    columns:
+      - name: product_category_name
+        description: Category name in Portuguese
+      - name: product_category_name_english
+        description: Category name in English
