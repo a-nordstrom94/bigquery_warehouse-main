@@ -66,7 +66,7 @@ The transformation layer follows **dbt best practices** with a clear separation 
 
 ### Data Lineage
 
-![dbt Lineage Graph](./assets/dbt_lineage_graph.png)
+![dbt Lineage Graph](./assets/dbt_lineage_graph.jpg)
 
 ### Sources
 
