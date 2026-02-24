@@ -9,7 +9,7 @@ models:
     columns:
       - name: customer_id
         description: Unique customer identifier
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: customer_city
@@ -34,7 +34,7 @@ models:
         description: How many orders were canceled 
       - name: cancellation_rate
         description: Ratio of canceled orders to total orders.
-        tests:
+        data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
               max_value: 1
@@ -44,6 +44,10 @@ models:
         description: Average review score given by the customer (1-5)
       - name: customer_segment
         description: "Classification based on purchase frequency: loyal 5+, repeat 2-4 orders, one-time 1 order."
+      - name: created_at
+        description: Audit column indicating when this record was created.
+      - name: updated_at
+        description: Audit column indicating the last time this record was updated.
 
   - name: product_performance
     description: Product sales performance and popularity metrics
@@ -53,7 +57,7 @@ models:
     columns:
       - name: product_id
         description: Unique product identifier.
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: product_category_name_english
@@ -95,7 +99,7 @@ models:
     columns:
       - name: seller_id
         description: "Unique seller identifier."
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: seller_city

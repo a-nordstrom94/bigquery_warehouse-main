@@ -9,7 +9,16 @@ with products as (
 ),
 
 translations as (
-    select * from {{ ref('stg_olist__product_category_translation') }}
+    -- Deduplicate on the join key to prevent fan-out into products.
+    -- The raw translation table has no uniqueness guarantee on product_category_name;
+    -- duplicate rows here would multiply every product that has that category,
+    -- propagating through fct_order_items and inflating product_performance totals.
+    select
+        product_category_name,
+        -- Take the first English translation alphabetically for determinism.
+        min(product_category_name_english) as product_category_name_english
+    from {{ ref('stg_olist__product_category_translation') }}
+    group by product_category_name
 )
 
 select

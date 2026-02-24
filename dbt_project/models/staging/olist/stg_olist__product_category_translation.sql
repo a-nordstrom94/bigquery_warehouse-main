@@ -1,11 +1,13 @@
-{{
-    config(
-        materialized='view'
-    )
-}}
+with source as (
+    select * from {{ source('olist_bronze', 'product_category_name_translation') }}
+),
 
-select
-    cast(product_category_name as string) as product_category_name,
-    cast(product_category_name_english as string) as product_category_name_english,
-    {{ add_audit_columns() }}
-from {{ source('olist_bronze', 'product_category_name_translation') }}
+renamed as (
+    select
+        cast(product_category_name as string) as product_category_name,
+        cast(product_category_name_english as string) as product_category_name_english,
+        {{ add_audit_columns() }}
+    from source
+)
+
+select * from renamed

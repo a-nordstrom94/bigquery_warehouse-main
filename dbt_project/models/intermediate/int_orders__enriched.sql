@@ -9,7 +9,7 @@ with orders as (
 ),
 
 payments as (
-    select * from {{ ref('int_orders__payments_pivoted') }}
+    select * from {{ ref('int_orders__payments_aggregated') }}
 ),
 
 items as (
@@ -29,27 +29,28 @@ select
     -- Payment metrics
     coalesce(payments.total_payment_value, 0) as total_payment_value,
     coalesce(payments.payment_count, 0) as payment_count,
-    payments.max_installments,
+    payments.max_payment_installments as max_installments,
     payments.payment_methods_used,
+    -- New: Adding primary type and specific values for dashboarding
+    payments.primary_payment_type,
+    coalesce(payments.credit_card_value, 0) as credit_card_value,
+    coalesce(payments.boleto_value, 0) as boleto_value,
+    coalesce(payments.voucher_value, 0) as voucher_value,
+    coalesce(payments.debit_card_value, 0) as debit_card_value,
     
     -- Item metrics
     coalesce(items.unique_products, 0) as unique_products,
-    coalesce(items.total_item_value, 0) as total_item_value,
-    coalesce(items.total_freight_value, 0) as total_freight_value,
+    coalesce(items.total_items_price, 0) as total_items_price,
+    coalesce(items.total_freight, 0) as total_freight,
     coalesce(items.avg_item_price, 0) as avg_item_price,
     coalesce(items.total_items, 0) as total_items,
     
     -- Calculated metrics
-    coalesce(items.total_item_value, 0) + coalesce(items.total_freight_value, 0) as order_total,
+    coalesce(items.total_items_price, 0) + coalesce(items.total_freight, 0) as order_total,
     
-    -- Delivery metrics
     case 
         when orders.order_delivered_customer_date is not null
-        then timestamp_diff(
-            orders.order_delivered_customer_date,
-            orders.order_purchase_timestamp,
-            day
-        )
+        then timestamp_diff(orders.order_delivered_customer_date, orders.order_purchase_timestamp, day)
         else null
     end as delivery_days,
     
@@ -59,14 +60,9 @@ select
         else 'Delayed'
     end as delivery_status,
     
-    -- Time to approval
     case
         when orders.order_approved_at is not null
-        then timestamp_diff(
-            orders.order_approved_at,
-            orders.order_purchase_timestamp,
-            hour
-        )
+        then timestamp_diff(orders.order_approved_at, orders.order_purchase_timestamp, hour)
         else null
     end as hours_to_approval
     

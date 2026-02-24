@@ -1,37 +1,35 @@
 {{
-    config(
-        materialized='ephemeral'
-    )
+    config(materialized='ephemeral')
 }}
 
-with orders_enriched as (
+with orders as (
     select * from {{ ref('int_orders__enriched') }}
-    where order_status not in ('canceled', 'unavailable')  -- Exclude cancelled orders
+),
+
+reviews as (
+    select * from {{ ref('int_orders__reviews') }}
+),
+
+customer_history as (
+    select
+        o.customer_id,
+        count(distinct o.order_id) as total_orders,
+        
+        safe_divide(
+            count(distinct case when o.order_status = 'canceled' then o.order_id end),
+            count(distinct o.order_id)
+        ) as cancellation_rate,
+        
+        min(o.order_purchase_timestamp) as first_order_at,
+        max(o.order_purchase_timestamp) as last_order_at,
+        
+        -- Using 'order_total' from enriched model (which is price + freight)
+        sum(case when o.order_status != 'canceled' then o.order_total else 0 end) as lifetime_value,
+        
+        avg(r.review_score) as avg_review_score
+    from orders o
+    left join reviews r on o.order_id = r.order_id
+    group by 1
 )
 
-select
-    customer_id,
-    count(distinct order_id) as total_orders,
-    sum(total_payment_value) as total_spend,
-    avg(total_payment_value) as avg_order_value,
-    min(order_purchase_timestamp) as first_order_date,
-    max(order_purchase_timestamp) as last_order_date,
-    
-    -- Customer lifetime metrics
-    timestamp_diff(
-        max(order_purchase_timestamp),
-        min(order_purchase_timestamp),
-        day
-    ) as days_since_first_order,
-    
-    -- Average delivery performance
-    avg(delivery_days) as avg_delivery_days,
-    
-    -- Product variety
-    sum(unique_products) as total_unique_products_ordered,
-    
-    -- Payment behavior
-    avg(payment_count) as avg_payments_per_order
-    
-from orders_enriched
-group by customer_id
+select * from customer_history

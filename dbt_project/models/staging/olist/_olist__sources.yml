@@ -12,27 +12,140 @@ sources:
     tables:
       - name: customers
         description: Customer demographic data
-        
+        columns:
+          - name: customer_id
+            description: Unique customer identifier
+          - name: customer_unique_id
+            description: Unique identifier for the same customer across different orders
+          - name: customer_zip_code_prefix
+            description: First 5 digits of customer zip code
+          - name: customer_city
+            description: Customer city name
+          - name: customer_state
+            description: Customer state (2-letter code)
+
       - name: orders
         description: Order header information
+        columns:
+          - name: order_id
+            description: Unique order identifier
+          - name: customer_id
+            description: Customer who placed the order
+          - name: order_status
+            description: Current order status
+          - name: order_purchase_timestamp
+            description: Order purchase timestamp
+          - name: order_approved_at
+            description: Order approval timestamp
+          - name: order_delivered_carrier_date
+            description: When order was delivered to carrier
+          - name: order_delivered_customer_date
+            description: When order was delivered to customer
+          - name: order_estimated_delivery_date
+            description: Estimated delivery date
         
       - name: order_items
         description: Line items for each order
+        columns:
+          - name: order_id
+            description: Order identifier
+          - name: order_item_id
+            description: Line item number within the order (1, 2, 3, ...)
+          - name: product_id
+            description: Identifier for the product in this line item
+          - name: seller_id
+            description: Identifier for the seller of this product
+          - name: shipping_limit_date
+            description: Deadline for seller to handing the item to the carrier
+          - name: price
+            description: Price of the product in this line item
+          - name: freight_value
+            description: Freight cost associated with this line item
         
       - name: order_payments
         description: Payment transactions per order
+        columns:
+          - name: order_id
+            description: Order identifier
+          - name: payment_sequential
+            description: Sequential number of the payment for the order (1, 2, 3, ...)
+          - name: payment_type
+            description: Payment method used (e.g., credit_card, boleto, voucher, debit_card)
+          - name: payment_installments
+            description: Number of installments for this payment (1 if not split)
+          - name: payment_value
+            description: Amount paid in this transaction
         
       - name: reviews
         description: Customer reviews and ratings
-        
+        columns:
+          - name: review_id
+            description: Unique identifier for the review
+          - name: order_id
+            description: Order associated with this review
+          - name: review_score
+            description: Rating given by the customer (1-5)
+          - name: review_comment_title
+            description: Title of the customer's review comment
+          - name: review_comment_message
+            description: Text of the customer's review comment
+          - name: review_creation_date
+            description: Timestamp when satisfaction survey was sent to customer
+          - name: review_answer_timestamp
+            description: Timestamp when the customer responded to the survey
+
       - name: products
         description: Product catalog
+        columns:
+          - name: product_id
+            description: Unique product identifier
+          - name: product_category_name
+            description: Category name in Portuguese
+          - name: product_name_length
+            description: Length of the product name string
+          - name: product_description_length
+            description: Length of the product description string
+          - name: product_photos_qty
+            description: Number of photos provided for the product
+          - name: product_weight_g
+            description: Weight of the product in grams
+          - name: product_length_cm
+            description: Length of the product in centimeters
+          - name: product_height_cm
+            description: Height of the product in centimeters
+          - name: product_width_cm
+            description: Width of the product in centimeters
         
       - name: sellers
         description: Seller information
+        columns:
+          - name: seller_id
+            description: Unique seller identifier
+          - name: seller_zip_code_prefix
+            description: First 5 digits of seller zip code
+          - name: seller_city
+            description: Seller city name
+          - name: seller_state
+            description: Seller state (2-letter code)
         
       - name: geolocations
         description: Geolocation data for zip codes
+        columns:
+          - name: geolocation_zip_code_prefix
+            description: Zip code prefix
+          - name: geolocation_lat
+            description: Latitude
+          - name: geolocation_lng
+            description: Longitude
+          - name: geolocation_city
+            description: City name for this zip code
+          - name: geolocation_state
+            description: State (2-letter code) for this zip code
         
       - name: product_category_name_translation
         description: Category name translations PT->EN
+        columns:
+          - name: product_category_name
+            description: Category name in Portuguese
+          - name: product_category_name_english
+            description: Category name in English

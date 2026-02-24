@@ -9,7 +9,7 @@ models:
     columns:
       - name: customer_id
         description: "Unique identifier for the customer record associated with a specific order."
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: customer_unique_id
@@ -22,22 +22,14 @@ models:
         description: "State code (2 letters) of the customer."
       - name: total_orders
         description: "Total count of orders placed by this customer_id."
-      - name: total_spend
+      - name: lifetime_value
         description: "Total monetary value spent by this customer across all orders."
-      - name: avg_order_value
-        description: "Average spend per order (Total Spend / Total Orders)."
-      - name: first_order_date
+      - name: first_order_at
         description: "Timestamp of the very first purchase made by this customer."
-      - name: last_order_date
+      - name: last_order_at
         description: "Timestamp of the most recent purchase."
-      - name: days_since_first_order
-        description: "Number of days elapsed since the customer's first purchase."
-      - name: customer_segment
-        description: "Behavioral bucket: Loyal (5+), Repeat (2-4), One-time (1), or No Orders."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: avg_review_score
+        description: "Average review score given by the customer (1-5)."
 
   - name: dim_products
     description: "Product dimension table containing physical attributes, category translations, and calculated dimensions."
@@ -47,7 +39,7 @@ models:
     columns:
       - name: product_id
         description: "Unique identifier for the product."
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: product_category_name
@@ -83,7 +75,7 @@ models:
     columns:
       - name: seller_id
         description: "Unique identifier for the seller."
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: seller_zip_code_prefix
@@ -112,12 +104,12 @@ models:
     columns:
       - name: order_id
         description: "Unique identifier for the order."
-        tests:
+        data_tests:
           - not_null
           - unique
       - name: customer_id
         description: "Identifier for the customer. Links to dim_customers."
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('dim_customers')
@@ -127,49 +119,47 @@ models:
       - name: order_purchase_timestamp
         description: "The date and time the order was placed."
       - name: order_approved_at
-        description: "The date and time the order was approved."
+        description: "Timestamp when the order was approved for processing. NULL if not yet approved."
       - name: order_delivered_carrier_date
-        description: "The date and time the order was delivered to the carrier."
+        description: "Timestamp when the order was handed off to the logistics carrier. NULL if not yet shipped."
       - name: order_delivered_customer_date
-        description: "The date and time the order was delivered to the customer."
+        description: "Timestamp when the order was delivered to the customer. NULL if not yet delivered."
       - name: order_estimated_delivery_date
-        description: "The estimated delivery date provided at the time of purchase."
+        description: "Estimated delivery date communicated to the customer at time of purchase."
+      - name: delivery_days
+        description: "Total days from order purchase to customer delivery. NULL for undelivered orders."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 365
+              row_condition: "order_delivered_customer_date is not null"
+              severity: warn
+      - name: delivery_status
+        description: "SLA classification: 'On Time' if delivered on or before estimated date, 'Delayed' if after, 'Not Delivered' if no delivery date recorded."
+        data_tests:
+          - accepted_values:
+              values: ['On Time', 'Delayed', 'Not Delivered']
+      - name: hours_to_approval
+        description: "Hours elapsed between order placement and approval. NULL if order was never approved."
+      - name: total_items_price
+        description: "Sum of all item prices for the order, excluding freight."
+      - name: total_freight
+        description: "Sum of all freight charges for the order."
+      - name: total_order_value
+        description: "Grand total order value combining item prices and freight (total_items_price + total_freight)."
       - name: total_payment_value
-        description: "Total value paid by the customer, including freight."
-        tests:
+        description: "Total value paid by the customer."
+        data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
               max_value: 100000
               severity: warn
       - name: payment_count
-        description: "Number of payment transactions associated with the order."
-      - name: max_installments
-        description: "Maximum number of installments used in payment transactions."
-      - name: payment_methods_used
-        description: "Comma-separated list of payment types used for this order."
-      - name: unique_products
-        description: "Count of distinct products included in the order."
-      - name: total_item_value
-        description: "The sum of prices for all items in the order."
-      - name: total_freight_value
-        description: "The sum of freight charges for all items in the order."
-      - name: avg_item_price
-        description: "Average price per item in the order."
-      - name: total_items
-        description: "Total quantity of items in the order."
-      - name: order_total
-        description: "Order total including freight."
-      - name: delivery_days
-        description: "Calculated number of days between purchase and customer delivery."
-      - name: delivery_status
-        description: "Classification: 'On Time' or 'Delayed' based on estimated delivery date."
-      - name: hours_to_approval
-        description: "Timestamp difference between order confirmation and order approved."
-        tests:
-          - dbt_expectations.expect_column_values_to_be_between:
-              min_value: 0
-              max_value: 8760 # Example: 1 year (to catch extreme outliers)
-              severity: warn
+        description: "Number of payment transactions for this order."
+      - name: review_score
+        description: "Review score (1-5)."
+      - name: review_comment_message
+        description: "Review message body."
       - name: created_at
         description: "Audit column: Record creation timestamp."
       - name: updated_at
@@ -183,49 +173,56 @@ models:
       materialized: incremental
       unique_key: ['order_id', 'order_item_id']
       incremental_strategy: 'merge'
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - order_id
+            - order_item_id
     columns:
       - name: order_id
         description: "Unique identifier for the order."
-        tests:
+        data_tests:
           - not_null
       - name: order_item_id
         description: "Sequential number identifying the item within the specific order."
-        tests:
+        data_tests:
           - not_null
       - name: product_id
         description: "Unique identifier for the product."
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('dim_products')
               field: product_id
       - name: seller_id
         description: "Unique identifier for the seller."
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('dim_sellers')
               field: seller_id
+      - name: seller_city
+        description: "City where the seller is located."
+      - name: seller_state
+        description: "State (2-letter code) where the seller is located."
       - name: customer_id
         description: "Identifier for the customer who placed the order."
+      - name: product_category_name_english
+        description: "Category of the product in English."
+      - name: shipping_limit_date
+        description: "Shipping deadline for this item."
       - name: order_status
         description: "Current status of the order (e.g., delivered, shipped, canceled)."
       - name: order_purchase_timestamp
         description: "The timestamp when the order was placed. Used for table partitioning."
-      - name: product_category_name_english
-        description: "Category of the product in English."
-      - name: seller_city
-        description: "City location of the seller."
-      - name: seller_state
-        description: "State location of the seller."
-      - name: price
+      - name: item_price
         description: "Unit price of the item."
-        tests:
+        data_tests:
           - not_null
-      - name: freight_value
+      - name: item_freight
         description: "Freight cost associated with this specific item."
-      - name: item_total
-        description: "Calculated total cost for the item (Price + Freight)."
+      - name: item_total_with_freight
+        description: "Calculated total cost for the item including freight (item_price + item_freight)."
       - name: created_at
         description: "Audit column: Record creation timestamp."
       - name: updated_at

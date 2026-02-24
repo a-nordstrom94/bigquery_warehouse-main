@@ -6,12 +6,12 @@ models:
     columns:
       - name: customer_id
         description: Unique customer identifier
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: customer_unique_id
         description: Unique identifier for the same customer across different orders
-        tests:
+        data_tests:
           - not_null
       - name: customer_zip_code_prefix
         description: First 5 digits of customer zip code
@@ -25,19 +25,19 @@ models:
     columns:
       - name: order_id
         description: Unique order identifier
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: customer_id
         description: Customer who placed the order
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('stg_olist__customers')
               field: customer_id
       - name: order_status
         description: Current order status
-        tests:
+        data_tests:
           - accepted_values:
               values: ['delivered', 'shipped', 'approved', 'canceled', 'unavailable', 'invoiced', 'processing', 'created']
       - name: order_purchase_timestamp
@@ -56,7 +56,7 @@ models:
     columns:
       - name: order_id
         description: Order identifier
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('stg_olist__orders')
@@ -71,11 +71,11 @@ models:
         description: Shipping deadline
       - name: price
         description: Item price
-        tests:
+        data_tests:
           - not_null
       - name: freight_value
         description: Freight cost for this item
-        tests:
+        data_tests:
           - not_null
 
   - name: stg_olist__order_payments
@@ -83,7 +83,7 @@ models:
     columns:
       - name: order_id
         description: Order identifier
-        tests:
+        data_tests:
           - not_null
           - relationships:
               to: ref('stg_olist__orders')
@@ -102,7 +102,7 @@ models:
     columns:
       - name: product_id
         description: Unique product identifier
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: product_category_name
@@ -127,7 +127,7 @@ models:
     columns:
       - name: seller_id
         description: Unique seller identifier
-        tests:
+        data_tests:
           - unique
           - not_null
       - name: seller_zip_code_prefix
@@ -142,17 +142,17 @@ models:
     columns:
       - name: review_id
         description: Review identifier (may have duplicates)
-        tests:
+        data_tests:
           - not_null
       - name: order_id
         description: Order being reviewed
-        tests:
+        data_tests:
           - relationships:
               to: ref('stg_olist__orders')
               field: order_id
       - name: review_score
         description: Review score (1-5)
-        tests:
+        data_tests:
           - not_null
       - name: review_comment_title
         description: Review title
@@ -182,5 +182,8 @@ models:
     columns:
       - name: product_category_name
         description: Category name in Portuguese
+        data_tests:
+          - not_null
+          - unique
       - name: product_category_name_english
         description: Category name in English

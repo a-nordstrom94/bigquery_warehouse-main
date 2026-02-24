@@ -119,12 +119,6 @@ with DAG(
         print(f"{'Table Name':<45} {'Row Count':>20}")
         print("-" * 70)
         
-        gold_tables = [
-            'dim_customers', 'dim_products', 'dim_sellers',
-            'fct_orders', 'fct_order_items',
-            'customer_metrics', 'product_performance', 'seller_performance'
-        ]
-        
         for table in GOLD_TABLES:
             count = next(client.query(f"SELECT COUNT(*) as cnt FROM `{GCP_PROJECT_ID}.{GOLD_DATASET}.{table}`").result()).cnt
             print(f"Gold Table:  {table:<40} | {count:>10,} rows")

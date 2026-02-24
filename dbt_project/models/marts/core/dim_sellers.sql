@@ -1,18 +1,19 @@
 {{
     config(
-        materialized='table',
-        schema='gold'
+        materialized='table'
     )
 }}
 
-select
-    seller_id,
-    seller_zip_code_prefix,
-    seller_city,
-    seller_state,
-    seller_lat,
-    seller_lng,
+with final as (
+    select
+        seller_id,
+        seller_zip_code_prefix,
+        seller_city,
+        seller_state,
+        seller_lat,
+        seller_lng,
+        {{ add_audit_columns() }}
+    from {{ ref('int_sellers__with_locations') }}
+)
     
-    {{ add_audit_columns() }}
-    
-from {{ ref('int_sellers__with_locations') }}
+select * from final
