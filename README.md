@@ -19,16 +19,16 @@ The pipeline automates the full journey from raw CSV files in Google Cloud Stora
 ## Architecture
 
 ```
-┌────────────┐     ┌──────────────┐     ┌─────────────────────────┐     ┌──────────────┐
+┌────────────┐      ┌──────────────┐     ┌─────────────────────────┐      ┌──────────────┐
 │  Raw CSVs  │────▶│  GCS Bucket  │────▶│  BigQuery (Bronze)      │────▶│ Looker Studio│
-│  /raw_data │     │              │     │    ▼ Airflow ingestion  │     │  Dashboard   │
-└────────────┘     └──────────────┘     │  Staging views (Silver) │     └──────────────┘
-                                        │    ▼ dbt transforms     │
-                                        │  Intermediate (ephem.)  │
-                                        │    ▼                    │
-                                        │  Facts & Dims (Gold)    │
-                                        │  Analytics views (Gold) │
-                                        └─────────────────────────┘
+│  /raw_data │      │              │     │    ▼ Airflow ingestion  │      │  Dashboard   │
+└────────────┘      └──────────────┘     │  Staging views (Silver) │      └──────────────┘
+                                         │    ▼ dbt transforms     │
+                                         │  Intermediate (ephem.)  │
+                                         │    ▼                    │
+                                         │  Facts & Dims (Gold)    │
+                                         │  Analytics views (Gold) │
+                                         └─────────────────────────┘
 ```
 
 | Layer | Tool | Description |
@@ -185,17 +185,14 @@ Defined in [`packages.yml`](dbt_project/packages.yml):
 
 ## Dashboard & Insights
 
-The final output is an interactive **Looker Studio** dashboard connected to the Gold layer.
+The final output is an interactive **Looker Studio** dashboard connected to the BigQuery Gold layer.
 
-- **Key Metrics:** Total Revenue, Average Order Value, Customer Lifetime Value, Delivery Performance
-- **Dashboard Link:** [View Live Dashboard](https://lookerstudio.google.com/u/0/reporting/333b49a4-5784-4e96-8056-d910960ab4d1/page/1AiiF)
+* **Key Metrics:** Total Revenue, Average Order Value, Customer Lifetime Value, and Delivery Performance.
+* **Dashboard Link:** [View Live Dashboard](https://lookerstudio.google.com/u/3/reporting/b4966ff4-380a-4988-845a-327f8e8a803b/page/yMDqF)
 
-> ⚠️ Dashboard is being updated to reflect the new dimensional model.
-
-[![Looker Studio Dashboard Preview](./assets/dashboard_preview.png)](https://lookerstudio.google.com/u/0/reporting/333b49a4-5784-4e96-8056-d910960ab4d1/page/1AiiF)
+[![Looker Studio Dashboard Preview](https://raw.githubusercontent.com/a-nordstrom94/bigquery_warehouse-main/main/assets/looker_dashboard.png)](https://lookerstudio.google.com/u/3/reporting/b4966ff4-380a-4988-845a-327f8e8a803b/page/yMDqF)
 
 ---
-
 ## Tech Stack
 
 | Technology | Role |
