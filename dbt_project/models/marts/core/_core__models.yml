@@ -142,8 +142,13 @@ models:
               field: customer_id
       - name: order_status
         description: "The current state of the order (e.g., delivered, canceled)."
+        data_tests:
+          - accepted_values:
+              values: ['delivered', 'shipped', 'approved', 'canceled', 'unavailable', 'invoiced', 'processing', 'created']
       - name: order_purchase_timestamp
         description: "The date and time the order was placed."
+        data_tests:
+          - not_null
       - name: order_approved_at
         description: "Timestamp when the order was approved for processing. NULL if not yet approved."
       - name: order_delivered_carrier_date
@@ -169,8 +174,16 @@ models:
         description: "Hours elapsed between order placement and approval. NULL if order was never approved."
       - name: total_items_price
         description: "Sum of all item prices for the order, excluding freight."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              severity: warn
       - name: total_freight
         description: "Sum of all freight charges for the order."
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              severity: warn
       - name: total_order_value
         description: "Grand total order value combining item prices and freight (total_items_price + total_freight)."
       - name: total_payment_value
@@ -213,6 +226,9 @@ models:
         description: "Unique identifier for the order."
         data_tests:
           - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
       - name: order_item_id
         description: "Sequential number identifying the item within the specific order."
         data_tests:
@@ -255,6 +271,9 @@ models:
         description: "Calculated total cost for the item including freight (item_price + item_freight)."
       - name: delivery_status
         description: "SLA classification inherited from the order: 'On Time', 'Delayed', or 'Not Delivered'."
+        data_tests:
+          - accepted_values:
+              values: ['On Time', 'Delayed', 'Not Delivered']
       - name: is_delivered_on_time
         description: "Boolean: true if the order containing this item was delivered on time."
       - name: primary_payment_type
