@@ -41,7 +41,7 @@ with orders_enriched as (
         boleto_value,
         voucher_value,
         debit_card_value
-    from {{ ref('int_orders__enriched') }}
+    from {{ ref('int_orders__enriched___') }}
 ),
 
 reviews as (
