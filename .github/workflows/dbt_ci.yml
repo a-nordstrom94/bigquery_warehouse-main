@@ -1,0 +1,78 @@
+name: dbt CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate:
+    name: dbt Parse & SQL Lint
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: dbt_project
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Cache pip downloads to speed up subsequent runs
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dbt-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-dbt-
+
+      - name: Install dbt and sqlfluff
+        run: |
+          pip install --upgrade pip
+          pip install \
+            dbt-core==1.8.0 \
+            dbt-bigquery==1.8.0 \
+            sqlfluff==3.0.7
+
+      # Write a stub profiles.yml for CI.
+      # Uses method: oauth so Google ADC is loaded lazily — dbt parse never
+      # makes a real API call, so no credentials are required.
+      - name: Write CI stub profiles.yml
+        run: |
+          mkdir -p .ci
+          cat > .ci/profiles.yml <<'PROFILE'
+          dbt_project:
+            target: ci
+            outputs:
+              ci:
+                type: bigquery
+                method: oauth
+                project: ci-placeholder
+                dataset: ci_dataset
+                location: US
+                threads: 1
+                timeout_seconds: 300
+          PROFILE
+
+      - name: dbt deps
+        run: dbt deps --profiles-dir .ci
+
+      - name: dbt parse (validate project structure & refs)
+        run: dbt parse --profiles-dir .ci
+
+      # Lint SQL files using the jinja templater.
+      # --ignore templating means unresolvable dbt macros (ref, source, config)
+      # are skipped — only real SQL style violations fail the step.
+      - name: sqlfluff lint
+        run: |
+          sqlfluff lint models/ \
+            --dialect bigquery \
+            --templater jinja \
+            --ignore templating \
+            --exclude-rules RF04

@@ -96,6 +96,15 @@ Run all tests:
 docker exec -it docker-dbt-1 bash -c \
   "cd /usr/app/dbt_project && dbt test --profiles-dir . --fail-fast"
 ```
+## CI/CD Workflow
+
+To maintain a production-grade standard, this repository implements Continuous Integration via GitHub Actions. Every Pull Request to the main branch triggers an automated suite to prevent breaking changes:
+
+    dbt Project Validation: Runs dbt parse to verify lineage integrity, correct ref() mapping, and YAML configuration accuracy.
+
+    Automated Linting: SQLFluff is utilized to enforce a consistent SQL style guide across all models, ensuring code readability and maintainability.
+
+    Dependency Verification: Automatically validates that all dbt packages in packages.yml are resolvable and compatible.
 
 ### Packages
 
