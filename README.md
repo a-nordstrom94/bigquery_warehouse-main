@@ -62,9 +62,9 @@ The transformation layer follows **dbt best practices** with a clear separation 
 - **Incremental models** : `fct_orders` and `fct_order_items` use `merge` strategy with composite unique keys and day-based partitioning to avoid full-table rebuilds
 - **Ephemeral intermediates** : CTEs like `int_customers__order_history` and `int_orders__payments_pivoted` keep the warehouse clean while maintaining lineage
 - **DRY macros** : Reusable logic in [`macros/`](dbt_project/macros/):
-  - [`add_audit_columns()`](dbt_project/macros/data_quality.sql) — injects `_dbt_loaded_at` and `_dbt_run_id` into every model
-  - [`clean_string()`](dbt_project/macros/data_quality.sql) — standardizes string columns
-  - [`test_row_count_match()`](dbt_project/macros/data_quality.sql) — custom generic test for row count validation
+  - [`add_audit_columns()`](dbt_project/macros/data_quality.sql) - injects `_dbt_loaded_at` and `_dbt_run_id` into every model
+  - [`clean_string()`](dbt_project/macros/data_quality.sql) - standardizes string columns
+  - [`test_row_count_match()`](dbt_project/macros/data_quality.sql) - custom generic test for row count validation
 - **Custom schema routing** : Models are routed to `olist_silver` or `olist_gold` via [`dbt_project.yml`](dbt_project/dbt_project.yml) config, with a custom `generate_schema_name` macro to avoid prefix concatenation
 
 ### Data Lineage
