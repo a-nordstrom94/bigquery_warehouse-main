@@ -28,26 +28,40 @@ models:
         description: The total gross amount paid by the customer, including freight costs and any installments.
       - name: avg_order_value
         description: Average value per order
-      - name: delivered_orders
-        description: How many orders were delivered
-      - name: canceled_orders
-        description: How many orders were canceled 
+      - name: total_items_ordered
+        description: Total number of items ordered by this customer (excluding canceled orders).
+      - name: total_reviews
+        description: Total number of reviews submitted by the customer
+      - name: avg_review_score
+        description: Average review score given by the customer (1-5)
+      - name: on_time_orders
+        description: Number of orders delivered on or before the estimated delivery date.
+      - name: on_time_delivery_rate
+        description: Ratio of on-time deliveries to total delivered orders (excludes not-yet-delivered orders).
+        data_tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 1
+      - name: credit_card_spend
+        description: Total amount paid via credit card (excluding canceled orders).
+      - name: boleto_spend
+        description: Total amount paid via boleto (excluding canceled orders).
+      - name: voucher_spend
+        description: Total amount paid via voucher (excluding canceled orders).
+      - name: debit_card_spend
+        description: Total amount paid via debit card (excluding canceled orders).
+      - name: customer_segment
+        description: "Classification based on purchase frequency: loyal 5+, repeat 2-4 orders, one-time 1 order."
       - name: cancellation_rate
         description: Ratio of canceled orders to total orders.
         data_tests:
           - dbt_expectations.expect_column_values_to_be_between:
               min_value: 0
               max_value: 1
-      - name: total_reviews
-        description: Total number of reviews submitted by the customer
-      - name: avg_review_score
-        description: Average review score given by the customer (1-5)
-      - name: customer_segment
-        description: "Classification based on purchase frequency: loyal 5+, repeat 2-4 orders, one-time 1 order."
-      - name: created_at
-        description: Audit column indicating when this record was created.
-      - name: updated_at
-        description: Audit column indicating the last time this record was updated.
+      - name: _dbt_loaded_at
+        description: Audit column indicating when this record was loaded by dbt.
+      - name: _dbt_run_id
+        description: Audit column indicating the dbt run ID that created this record.
 
   - name: product_performance
     description: Product sales performance and popularity metrics
@@ -86,10 +100,22 @@ models:
         description: Timestamp of the most recent purchase.
       - name: product_performance_tier
         description: "Classification based on order volume: Bestseller (100+), Popular (50+), Moderate (10+), or Low Volume."
-      - name: created_at
-        description: Audit column indicating when this record was created.
-      - name: updated_at
-        description: Audit column indicating the last time this record was updated.
+      - name: avg_review_score
+        description: Average review score across all orders containing this product.
+      - name: on_time_delivery_rate
+        description: Ratio of on-time delivered orders to total delivered orders for this product.
+      - name: credit_card_orders
+        description: Number of distinct orders for this product paid primarily via credit card.
+      - name: boleto_orders
+        description: Number of distinct orders for this product paid primarily via boleto.
+      - name: voucher_orders
+        description: Number of distinct orders for this product paid primarily via voucher.
+      - name: debit_card_orders
+        description: Number of distinct orders for this product paid primarily via debit card.
+      - name: _dbt_loaded_at
+        description: Audit column indicating when this record was loaded by dbt.
+      - name: _dbt_run_id
+        description: Audit column indicating the dbt run ID that created this record.
 
   - name: seller_performance
     description: "Detailed seller analytics covering sales volume, revenue, product diversity, and geographic reach."
@@ -132,9 +158,21 @@ models:
         description: "Timestamp of the seller's most recent sale."
       - name: days_active
         description: "Number of days between the seller's first and most recent sale."
+      - name: avg_review_score
+        description: "Average review score across all orders fulfilled by this seller."
+      - name: on_time_delivery_rate
+        description: "Ratio of on-time delivered orders to total delivered orders for this seller."
+      - name: credit_card_orders
+        description: "Number of distinct orders fulfilled by this seller paid primarily via credit card."
+      - name: boleto_orders
+        description: "Number of distinct orders fulfilled by this seller paid primarily via boleto."
+      - name: voucher_orders
+        description: "Number of distinct orders fulfilled by this seller paid primarily via voucher."
+      - name: debit_card_orders
+        description: "Number of distinct orders fulfilled by this seller paid primarily via debit card."
       - name: seller_performance_tier
         description: "Revenue-based classification: Top Seller (10k+), High Performer (5k+), Average (1k+), or New/Low Volume."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: _dbt_loaded_at
+        description: "Audit column: Timestamp when this record was loaded by dbt."
+      - name: _dbt_run_id
+        description: "Audit column: dbt invocation ID for the run that created this record."

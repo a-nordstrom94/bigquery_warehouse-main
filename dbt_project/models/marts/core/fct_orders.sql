@@ -32,6 +32,7 @@ with orders_enriched as (
         order_total,
         total_payment_value,
         payment_count,
+        total_items,
         -- New Payment Dimensions for Dashboarding
         primary_payment_type,
         payment_methods_used,
@@ -85,6 +86,10 @@ final as (
         r.review_score,
         r.review_comment_message,
         r.review_id,
+        -- Order amount (item count)
+        o.total_items,
+        -- Delivery SLA boolean
+        o.delivery_status = 'On Time' as is_delivered_on_time,
         {{ add_audit_columns() }}
     from orders_enriched o
     left join reviews r on o.order_id = r.order_id

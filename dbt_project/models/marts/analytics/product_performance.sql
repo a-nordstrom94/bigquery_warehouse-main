@@ -6,6 +6,7 @@
 
 with products as (
     select * from {{ ref('dim_products') }}
+    where is_current = true
 ),
 
 order_items as (
@@ -30,6 +31,21 @@ select
     -- Date metrics
     min(oi.order_purchase_timestamp) as first_sale_date,
     max(oi.order_purchase_timestamp) as last_sale_date,
+    
+    -- Review
+    avg(oi.review_score) as avg_review_score,
+    
+    -- Delivery SLA
+    safe_divide(
+        count(distinct case when oi.delivery_status = 'On Time' then oi.order_id end),
+        count(distinct case when oi.delivery_status in ('On Time', 'Delayed') then oi.order_id end)
+    ) as on_time_delivery_rate,
+
+    -- Payment type order counts
+    count(distinct case when oi.primary_payment_type = 'credit_card' then oi.order_id end) as credit_card_orders,
+    count(distinct case when oi.primary_payment_type = 'boleto' then oi.order_id end) as boleto_orders,
+    count(distinct case when oi.primary_payment_type = 'voucher' then oi.order_id end) as voucher_orders,
+    count(distinct case when oi.primary_payment_type = 'debit_card' then oi.order_id end) as debit_card_orders,
     
     -- Performance indicators
     case

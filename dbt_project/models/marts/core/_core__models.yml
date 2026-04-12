@@ -41,7 +41,9 @@ models:
         description: "Unique identifier for the product."
         data_tests:
           - not_null
-          - unique
+          - unique:
+              config:
+                where: "is_current = true"
       - name: product_category_name
         description: "Original product category name in Portuguese."
       - name: product_category_name_english
@@ -62,10 +64,21 @@ models:
         description: "Product width in centimeters."
       - name: product_volume_cm3
         description: "Calculated volume of the product (Length x Height x Width)."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: dbt_scd_id
+        description: "Surrogate key uniquely identifying this specific version of the product record (SCD Type 2)."
+        data_tests:
+          - not_null
+          - unique
+      - name: dbt_valid_from
+        description: "Timestamp when this version of the product record became active."
+      - name: dbt_valid_to
+        description: "Timestamp when this version of the product record was superseded. NULL means this is the current active version."
+      - name: is_current
+        description: "Boolean flag: true if this is the current (most recent) version of the product record."
+      - name: _dbt_loaded_at
+        description: "Audit column: Timestamp when this record was loaded by dbt."
+      - name: _dbt_run_id
+        description: "Audit column: dbt invocation ID for the run that created this record."
 
   - name: dim_sellers
     description: "Seller dimension table containing registration details and geographic coordinates (latitude/longitude)."
@@ -77,7 +90,9 @@ models:
         description: "Unique identifier for the seller."
         data_tests:
           - not_null
-          - unique
+          - unique:
+              config:
+                where: "is_current = true"
       - name: seller_zip_code_prefix
         description: "The first five digits of the seller's registered zip code."
       - name: seller_city
@@ -88,10 +103,21 @@ models:
         description: "Latitude coordinate for geographic mapping and distance calculations."
       - name: seller_lng
         description: "Longitude coordinate for geographic mapping and distance calculations."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: dbt_scd_id
+        description: "Surrogate key uniquely identifying this specific version of the seller record (SCD Type 2)."
+        data_tests:
+          - not_null
+          - unique
+      - name: dbt_valid_from
+        description: "Timestamp when this version of the seller record became active."
+      - name: dbt_valid_to
+        description: "Timestamp when this version of the seller record was superseded. NULL means this is the current active version."
+      - name: is_current
+        description: "Boolean flag: true if this is the current (most recent) version of the seller record."
+      - name: _dbt_loaded_at
+        description: "Audit column: Timestamp when this record was loaded by dbt."
+      - name: _dbt_run_id
+        description: "Audit column: dbt invocation ID for the run that created this record."
 
   - name: fct_orders
     description: >
@@ -160,10 +186,14 @@ models:
         description: "Review score (1-5)."
       - name: review_comment_message
         description: "Review message body."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: total_items
+        description: "Total number of items in the order."
+      - name: is_delivered_on_time
+        description: "Boolean: true if order was delivered on or before the estimated delivery date."
+      - name: _dbt_loaded_at
+        description: "Audit column: Timestamp when this record was loaded by dbt."
+      - name: _dbt_run_id
+        description: "Audit column: dbt invocation ID for the run that created this record."
 
   - name: fct_order_items
     description: >
@@ -223,7 +253,15 @@ models:
         description: "Freight cost associated with this specific item."
       - name: item_total_with_freight
         description: "Calculated total cost for the item including freight (item_price + item_freight)."
-      - name: created_at
-        description: "Audit column: Record creation timestamp."
-      - name: updated_at
-        description: "Audit column: Record last update timestamp."
+      - name: delivery_status
+        description: "SLA classification inherited from the order: 'On Time', 'Delayed', or 'Not Delivered'."
+      - name: is_delivered_on_time
+        description: "Boolean: true if the order containing this item was delivered on time."
+      - name: primary_payment_type
+        description: "The dominant payment method used for the order containing this item."
+      - name: review_score
+        description: "Review score (1-5) given for the order containing this item."
+      - name: _dbt_loaded_at
+        description: "Audit column: Timestamp when this record was loaded by dbt."
+      - name: _dbt_run_id
+        description: "Audit column: dbt invocation ID for the run that created this record."

@@ -29,8 +29,18 @@ orders as (
         order_id, 
         customer_id,
         order_purchase_timestamp,
-        order_status 
+        order_status,
+        delivery_status,
+        delivery_status = 'On Time' as is_delivered_on_time,
+        primary_payment_type
     from {{ ref('int_orders__enriched') }}
+),
+
+reviews as (
+    select
+        order_id,
+        review_score
+    from {{ ref('int_orders__reviews') }}
 ),
 
 products as (
@@ -64,11 +74,16 @@ final as (
         oi.item_total_value as item_total_with_freight, 
         o.order_purchase_timestamp,
         o.order_status,
+        o.delivery_status,
+        o.is_delivered_on_time,
+        o.primary_payment_type,
+        r.review_score,
         {{ add_audit_columns() }}
     from order_items oi
     inner join orders o on oi.order_id = o.order_id
     left join products p on oi.product_id = p.product_id
     left join sellers s on oi.seller_id = s.seller_id
+    left join reviews r on oi.order_id = r.order_id
 
     {% if is_incremental() %}
     where o.order_purchase_timestamp >= (

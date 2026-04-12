@@ -46,3 +46,9 @@ models:
 
       analytics:
         +materialized: table
+
+snapshots:
+  dbt_project:
+    # Snapshots land in a dedicated dataset for SCD Type 2 history tables.
+    # Override SNAPSHOTS_DATASET env var to control the target BigQuery dataset.
+    +target_schema: "{{ env_var('SNAPSHOTS_DATASET', 'olist_snapshots') }}"

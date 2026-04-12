@@ -5,7 +5,19 @@
 }}
 
 with products as (
-    select * from {{ ref('stg_olist__products') }}
+    -- Filter to current version only (dbt_valid_to IS NULL = active record in SCD2 snapshot)
+    select
+        product_id,
+        product_category_name,
+        product_name_length,
+        product_description_length,
+        product_photos_qty,
+        product_weight_g,
+        product_length_cm,
+        product_height_cm,
+        product_width_cm
+    from {{ ref('snap_products') }}
+    where dbt_valid_to is null
 ),
 
 translations as (

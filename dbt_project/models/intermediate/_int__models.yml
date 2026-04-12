@@ -52,4 +52,252 @@ models:
       - name: unique_products
         description: Count of distinct products in the order
       - name: total_items_price
-        description: Sum of
+        description: Sum of all item prices in the order
+
+  - name: int_orders__items_enriched
+    description: |
+      Order items with calculated item_total_value (price + freight).
+      Preserves item-level grain from staging.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Order identifier
+      - name: order_item_id
+        description: Sequential item number within order
+      - name: product_id
+        description: Product identifier
+      - name: seller_id
+        description: Seller identifier
+      - name: shipping_limit_date
+        description: Shipping deadline
+      - name: price
+        description: Item price
+      - name: freight_value
+        description: Freight cost for this item
+      - name: item_total_value
+        description: Total item cost including freight (price + freight_value)
+
+  - name: int_orders__reviews
+    description: |
+      Deduplicated reviews — one row per order.
+      Takes the latest review per order using ROW_NUMBER.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Order identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: review_id
+        description: Unique review identifier
+      - name: review_score
+        description: Rating given by the customer (1-5)
+      - name: review_comment_title
+        description: Title of the customer's review comment
+      - name: review_comment_message
+        description: Text of the customer's review comment
+      - name: review_created_at
+        description: Timestamp when the review was created
+      - name: review_answered_at
+        description: Timestamp when the customer responded
+
+  - name: int_orders__enriched
+    description: |
+      Order-level enrichment joining orders with aggregated payments and items.
+      Computes delivery metrics (delivery_days, delivery_status, hours_to_approval).
+    config:
+      materialized: ephemeral
+    columns:
+      - name: order_id
+        description: Unique order identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer who placed the order
+      - name: order_status
+        description: Current order status
+      - name: order_purchase_timestamp
+        description: Order purchase timestamp
+      - name: order_approved_at
+        description: Order approval timestamp
+      - name: order_delivered_carrier_date
+        description: When order was delivered to carrier
+      - name: order_delivered_customer_date
+        description: When order was delivered to customer
+      - name: order_estimated_delivery_date
+        description: Estimated delivery date
+      - name: total_payment_value
+        description: Sum of all payment values for the order
+      - name: payment_count
+        description: Number of payment transactions
+      - name: max_installments
+        description: Maximum installments used across payments
+      - name: payment_methods_used
+        description: Comma-separated list of payment types
+      - name: primary_payment_type
+        description: Most frequently used payment type
+      - name: credit_card_value
+        description: Total value paid via credit card
+      - name: boleto_value
+        description: Total value paid via boleto
+      - name: voucher_value
+        description: Total value paid via voucher
+      - name: debit_card_value
+        description: Total value paid via debit card
+      - name: unique_products
+        description: Count of distinct products in the order
+      - name: total_items_price
+        description: Sum of all item prices
+      - name: total_freight
+        description: Sum of all freight charges
+      - name: avg_item_price
+        description: Average price per item
+      - name: total_items
+        description: Total number of items
+      - name: order_total
+        description: Grand total (total_items_price + total_freight)
+      - name: delivery_days
+        description: Days from purchase to delivery (null if undelivered)
+      - name: delivery_status
+        description: "SLA classification: On Time, Delayed, or Not Delivered"
+      - name: hours_to_approval
+        description: Hours from purchase to approval (null if unapproved)
+
+  - name: int_customers__standardized
+    description: |
+      Customer records enriched with geolocation (lat/lng) via zip code lookup.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: customer_unique_id
+        description: Identifier linking same person across orders
+      - name: customer_zip_code_prefix
+        description: First 5 digits of customer zip code
+      - name: customer_city
+        description: Customer city name
+      - name: customer_state
+        description: Customer state (2-letter code)
+      - name: customer_lat
+        description: Latitude coordinate from geolocation lookup
+      - name: customer_lng
+        description: Longitude coordinate from geolocation lookup
+
+  - name: int_customers__order_history
+    description: |
+      Aggregated order history per customer. Includes LTV, cancellation rate,
+      delivery performance, and payment type breakdown.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: customer_id
+        description: Unique customer identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: total_orders
+        description: Total count of orders placed
+      - name: cancellation_rate
+        description: Ratio of canceled orders to total orders
+      - name: first_order_at
+        description: Timestamp of first purchase
+      - name: last_order_at
+        description: Timestamp of most recent purchase
+      - name: lifetime_value
+        description: Total spend across non-canceled orders
+      - name: avg_review_score
+        description: Average review score (1-5)
+      - name: total_reviews
+        description: Number of reviews submitted
+      - name: on_time_orders
+        description: Count of orders delivered on time
+      - name: on_time_delivery_rate
+        description: Ratio of on-time to total delivered orders
+      - name: total_items_ordered
+        description: Total items across non-canceled orders
+      - name: credit_card_spend
+        description: Total value paid via credit card
+      - name: boleto_spend
+        description: Total value paid via boleto
+      - name: voucher_spend
+        description: Total value paid via voucher
+      - name: debit_card_spend
+        description: Total value paid via debit card
+
+  - name: int_geolocation_by_zip
+    description: |
+      Deduplicated geolocation data — one row per zip code prefix.
+      Averages lat/lng across duplicate entries.
+    config:
+      materialized: ephemeral
+    columns:
+      - name: zip_code_prefix
+        description: Zip code prefix
+        data_tests:
+          - not_null
+          - unique
+      - name: latitude
+        description: Average latitude for this zip code
+      - name: longitude
+        description: Average longitude for this zip code
+
+  - name: int_products__with_categories
+    description: |
+      Current-version products joined with English category translations.
+      Filters to active SCD2 records only (dbt_valid_to IS NULL).
+    config:
+      materialized: ephemeral
+    columns:
+      - name: product_id
+        description: Unique product identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: product_category_name
+        description: Product category in Portuguese
+      - name: product_category_name_english
+        description: English translation of product category
+      - name: product_name_length
+        description: Length of product name
+      - name: product_description_length
+        description: Length of product description
+      - name: product_photos_qty
+        description: Number of product photos
+      - name: product_weight_g
+        description: Product weight in grams
+      - name: product_length_cm
+        description: Product length in cm
+      - name: product_height_cm
+        description: Product height in cm
+      - name: product_width_cm
+        description: Product width in cm
+
+  - name: int_sellers__with_locations
+    description: |
+      Current-version sellers joined with geolocation coordinates.
+      Filters to active SCD2 records only (dbt_valid_to IS NULL).
+    config:
+      materialized: ephemeral
+    columns:
+      - name: seller_id
+        description: Unique seller identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: seller_zip_code_prefix
+        description: Seller zip code prefix
+      - name: seller_city
+        description: Seller city
+      - name: seller_state
+        description: Seller state (2-letter code)
+      - name: seller_lat
+        description: Latitude coordinate from geolocation lookup
+      - name: seller_lng
+        description: Longitude coordinate from geolocation lookup

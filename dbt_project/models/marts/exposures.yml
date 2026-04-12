@@ -3,8 +3,8 @@ version: 2
 exposures:
   - name: olist_executive_dashboard
     type: dashboard
-    maturity: medium  # Set to 'high' once you finish the dashboard update!
-    url: "https://lookerstudio.google.com/u/0/reporting/333b49a4-5784-4e96-8056-d910960ab4d1/page/1AiiF"
+    maturity: high
+    url: "https://lookerstudio.google.com/u/0/reporting/b4966ff4-380a-4988-845a-327f8e8a803b/page/yMDqF/"
     description: >
       Executive-level view of the Olist ecosystem. 
       Covers Revenue Trends, Delivery SLAs, Seller Performance, and Customer Lifetime Value.
@@ -22,7 +22,6 @@ exposures:
       # Specialized Analytics Marts
       - ref('product_performance')
       - ref('seller_performance')
-      # Keeping this for now as per your current dashboard setup
       - ref('customer_metrics')
 
     owner:

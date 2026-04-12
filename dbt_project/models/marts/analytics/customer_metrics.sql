@@ -15,7 +15,14 @@ with customer_base as (
         lifetime_value as total_spent,
         avg_review_score,
         cancellation_rate,
-        {{ add_audit_columns() }}
+        total_reviews,
+        on_time_orders,
+        on_time_delivery_rate,
+        total_items_ordered,
+        credit_card_spend,
+        boleto_spend,
+        voucher_spend,
+        debit_card_spend
     from {{ ref('dim_customers') }}
 )
 
@@ -29,7 +36,17 @@ select
     date_diff(date(last_order_date), date(first_order_date), day) as customer_lifetime_days,
     total_spent,
     safe_divide(total_spent, total_orders) as avg_order_value,
+    total_items_ordered,
     avg_review_score,
+    total_reviews,
+    -- Delivery SLA
+    on_time_orders,
+    on_time_delivery_rate,
+    -- Payment type spend
+    credit_card_spend,
+    boleto_spend,
+    voucher_spend,
+    debit_card_spend,
     case
         when total_orders >= 5 then 'Loyal'
         when total_orders >= 2 then 'Repeat'

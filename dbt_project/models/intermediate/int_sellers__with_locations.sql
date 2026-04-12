@@ -5,7 +5,14 @@
 }}
 
 with sellers as (
-    select * from {{ ref('stg_olist__sellers') }}
+    -- Filter to current version only (dbt_valid_to IS NULL = active record in SCD2 snapshot)
+    select
+        seller_id,
+        seller_zip_code_prefix,
+        seller_city,
+        seller_state
+    from {{ ref('snap_sellers') }}
+    where dbt_valid_to is null
 ),
 
 geolocations as (

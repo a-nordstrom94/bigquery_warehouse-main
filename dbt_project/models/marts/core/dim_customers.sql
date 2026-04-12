@@ -28,6 +28,14 @@ final as (
         coalesce(oh.lifetime_value, 0) as lifetime_value,
         oh.avg_review_score,
         oh.cancellation_rate,
+        coalesce(oh.total_reviews, 0) as total_reviews,
+        coalesce(oh.on_time_orders, 0) as on_time_orders,
+        oh.on_time_delivery_rate,
+        coalesce(oh.total_items_ordered, 0) as total_items_ordered,
+        coalesce(oh.credit_card_spend, 0) as credit_card_spend,
+        coalesce(oh.boleto_spend, 0) as boleto_spend,
+        coalesce(oh.voucher_spend, 0) as voucher_spend,
+        coalesce(oh.debit_card_spend, 0) as debit_card_spend,
         {{ add_audit_columns() }}
         
     from customers_standardized c
