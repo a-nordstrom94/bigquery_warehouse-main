@@ -1,7 +1,8 @@
 # Olist E-commerce ELT Pipeline
-### *Orchestrated Data Warehouse with Airflow, dbt, and BigQuery*
+### *Orchestrated Data Warehouse with Airflow, Cosmos, dbt, and BigQuery*
 
 [![Airflow 2.10.4](https://img.shields.io/badge/Airflow-2.10.4-017CEE?style=flat&logo=Apache%20Airflow)](https://airflow.apache.org/)
+[![Cosmos](https://img.shields.io/badge/Cosmos-1.6+-4B32C3?style=flat&logo=astronomer)](https://astronomer.github.io/astronomer-cosmos/)
 [![dbt 1.8](https://img.shields.io/badge/dbt-1.8-FF694B?style=flat&logo=dbt)](https://www.getdbt.com/)
 [![GCP BigQuery](https://img.shields.io/badge/GCP-BigQuery-4285F4?style=flat&logo=google-cloud)](https://cloud.google.com/bigquery)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker)](https://docs.docker.com/compose/)
@@ -12,7 +13,7 @@
 
 A production-grade ELT pipeline for the [Olist Brazilian E-commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce), built as a portfolio project for **Analytics Engineer** roles.
 
-The pipeline automates the full journey from raw CSV files in Google Cloud Storage to a dimensional Star Schema in BigQuery, orchestrated by Airflow and transformed by dbt — with 60+ automated data tests, incremental materializations, and a live Looker Studio dashboard.
+The pipeline automates the full journey from raw CSV files in Google Cloud Storage to a dimensional Star Schema in BigQuery, orchestrated by Airflow with [Astronomer Cosmos](https://astronomer.github.io/astronomer-cosmos/) and transformed by dbt — with **99 automated data tests**, SCD Type 2 snapshots, incremental materializations, and a live Looker Studio dashboard.
 
 ---
 
@@ -33,7 +34,7 @@ The pipeline automates the full journey from raw CSV files in Google Cloud Stora
 
 | Layer | Tool | Description |
 |:---|:---|:---|
-| **Orchestration** | Apache Airflow (LocalExecutor) | DAG-based scheduling and dependency management |
+| **Orchestration** | Apache Airflow (LocalExecutor) + Astronomer Cosmos | DAG-based scheduling; Cosmos renders dbt models as native Airflow tasks |
 | **Ingestion** | Python / Airflow operators | Load raw Olist CSVs from GCS into BigQuery bronze tables |
 | **Transformation** | dbt | SQL-based staging → intermediate → marts pipeline |
 | **Warehouse** | Google BigQuery | Columnar storage with partitioning and clustering |
@@ -53,10 +54,12 @@ The transformation layer follows **dbt best practices** with a clear separation 
 | **Intermediate (`int_`)** | `ephemeral` | — | Business logic aggregations (not materialized in the warehouse) |
 | **Marts — Core (`dim_` / `fct_`)** | `table` / `incremental` | `olist_gold` | Star Schema dimensions and facts |
 | **Marts — Analytics** | `table` | `olist_gold` | Pre-aggregated analytical views (customer metrics, product & seller performance) |
+| **Snapshots** | `snapshot` (SCD2) | `olist_snapshots` | Slowly Changing Dimension Type 2 history for products and sellers |
 
 ### Key Design Decisions
 
-- **Incremental models** — `fct_orders` and `fct_order_items` use `merge` strategy with composite unique keys to avoid full-table rebuilds
+- **SCD Type 2 snapshots** — `snap_products` and `snap_sellers` track historical changes via `dbt_valid_from` / `dbt_valid_to` columns and an `is_current` flag. Downstream marts filter with `where is_current = true` to prevent row fanout
+- **Incremental models** — `fct_orders` and `fct_order_items` use `merge` strategy with composite unique keys and day-based partitioning to avoid full-table rebuilds
 - **Ephemeral intermediates** — CTEs like `int_customers__order_history` and `int_orders__payments_pivoted` keep the warehouse clean while maintaining lineage
 - **DRY macros** — Reusable logic in [`macros/`](dbt_project/macros/):
   - [`add_audit_columns()`](dbt_project/macros/data_quality.sql) — injects `_dbt_loaded_at` and `_dbt_run_id` into every model
@@ -76,14 +79,17 @@ All 9 Olist source tables are declared in [`_olist__sources.yml`](dbt_project/mo
 
 ## Data Quality
 
-A **tests-first** approach ensures every pipeline run is validated against **60+ data tests**:
+A **tests-first** approach ensures every pipeline run is validated against **99 data tests**:
 
 | Category | Examples |
 |:---|:---|
 | **Primary key integrity** | `unique` + `not_null` on all surrogate keys |
-| **Referential integrity** | Foreign key relationships between facts and dimensions (e.g., `fct_order_items.product_id` → `dim_products`) |
-| **Business logic** | `price > 0`, `review_score` between 1–5, `cancellation_rate` between 0–1 |
-| **Advanced expectations** | [`dbt_expectations`](dbt_project/packages.yml) tests (e.g., `expect_column_values_to_be_between`) |
+| **Compound key integrity** | `dbt_utils.unique_combination_of_columns` on `order_items` (order_id + order_item_id) and `order_payments` (order_id + payment_sequential) |
+| **Referential integrity** | `relationships` tests across layers (e.g., `fct_order_items.order_id` → `fct_orders`, staging FK tests to `stg_olist__products` / `stg_olist__sellers`) |
+| **Conditional uniqueness** | `unique` with `where: "is_current = true"` on SCD2 dimensions (`dim_products`, `dim_sellers`) |
+| **Accepted values** | `order_status`, `payment_type`, `review_score`, `delivery_status` validated against known enums |
+| **Range validation** | `dbt_expectations.expect_column_values_to_be_between` on monetary fields (`price`, `freight_value`, `payment_value`) |
+| **Business logic** | `cancellation_rate` between 0–1, review scores 1–5, total amounts ≥ 0 |
 
 Run all tests:
 ```bash
@@ -102,11 +108,13 @@ Defined in [`packages.yml`](dbt_project/packages.yml):
 
 ## Airflow DAGs
 
+The pipeline uses [Astronomer Cosmos](https://astronomer.github.io/astronomer-cosmos/) to render the dbt project as native Airflow tasks. Cosmos parses the dbt manifest and creates one Airflow task per dbt model/snapshot/test, giving full visibility into per-model execution in the Airflow UI.
+
 | DAG | File | Purpose |
 |:---|:---|:---|
+| **Master Orchestrator** | [`master_orchestrator_dag.py`](airflow/dags/master_orchestrator_dag.py) | Daily pipeline: triggers bronze ingestion → then the Cosmos dbt pipeline |
 | **Bronze Ingestion** | [`bronze_ingestion_dag.py`](airflow/dags/bronze_ingestion_dag.py) | Load raw CSVs from GCS into BigQuery bronze tables |
-| **Gold Transformation** | [`gold_transformation_dag.py`](airflow/dags/gold_transformation_dag.py) | `dbt run` (intermediate + marts) → verify gold tables → `dbt test` |
-| **Data Quality** | [`data_quality_dag.py`](airflow/dags/data_quality_dag.py) | Standalone data quality checks across all layers |
+| **dbt Pipeline (Cosmos)** | [`dbt_cosmos_dag.py`](airflow/dags/dbt_cosmos_dag.py) | Unified dbt DAG: staging → intermediate → marts → snapshots → tests |
 
 ---
 
@@ -115,9 +123,9 @@ Defined in [`packages.yml`](dbt_project/packages.yml):
 ```
 ├── airflow/
 │   ├── dags/                  # Airflow DAG definitions
+│   │   ├── master_orchestrator_dag.py
 │   │   ├── bronze_ingestion_dag.py
-│   │   ├── gold_transformation_dag.py
-│   │   ├── data_quality_dag.py
+│   │   ├── dbt_cosmos_dag.py
 │   │   └── utils/             # Shared config (DRY constants)
 │   ├── logs/
 │   └── plugins/
@@ -128,6 +136,7 @@ Defined in [`packages.yml`](dbt_project/packages.yml):
 │   │   └── marts/
 │   │       ├── core/          # dim_ and fct_ tables
 │   │       └── analytics/     # Pre-aggregated analytical models
+│   ├── snapshots/             # SCD Type 2 (snap_products, snap_sellers)
 │   ├── macros/                # Reusable SQL (audit columns, cleaning, tests)
 │   ├── tests/                 # Custom data tests
 │   ├── dbt_project.yml        # Project configuration
@@ -135,7 +144,7 @@ Defined in [`packages.yml`](dbt_project/packages.yml):
 │   └── packages.yml           # dbt package dependencies
 ├── docker/
 │   ├── docker-compose.yml     # Multi-container orchestration
-│   ├── Dockerfile.airflow     # Custom Airflow image
+│   ├── Dockerfile.airflow     # Custom Airflow image (includes Cosmos)
 │   ├── Dockerfile.dbt         # Custom dbt image
 │   ├── .env.example           # Environment variable template
 │   └── keys/                  # GCP service account (gitignored)
@@ -198,6 +207,7 @@ The final output is an interactive **Looker Studio** dashboard connected to the 
 | Technology | Role |
 |:---|:---|
 | **Apache Airflow 2.10.4** | Workflow orchestration |
+| **Astronomer Cosmos** | Renders dbt DAG as native Airflow tasks |
 | **dbt-core 1.8** | SQL transformation framework |
 | **Google BigQuery** | Cloud data warehouse |
 | **Google Cloud Storage** | Raw data lake |
@@ -243,5 +253,6 @@ Ensure your service account has the correct IAM roles:
 - **Stability over novelty** — Pinned Airflow to 2.10.4 after identifying provider instability in the 3.x ecosystem on Docker/Windows
 - **DRY engineering** — Centralized shared config in [`utils/config.py`](airflow/dags/utils/config.py), reusable dbt macros, and environment-driven dataset routing
 - **Incremental thinking** — Designed fact tables for incremental loads from day one to minimize BigQuery costs at scale
-- **Testing as documentation** — 35+ data tests serve as both guardrails and living documentation of business rules
+- **Testing as documentation** — 99 data tests serve as both guardrails and living documentation of business rules
+- **Cosmos for dbt orchestration** — Replaced custom BashOperator DAGs with Astronomer Cosmos, giving per-model task visibility in Airflow and eliminating boilerplate
 - **Container networking** — Resolved complex volume mapping between Windows/WSL2 hosts and Linux containers with AppArmor support
