@@ -28,7 +28,8 @@ RUN pip install \
     dbt-core==1.8.0 \
     dbt-bigquery==1.8.0 \
     pandas==2.1.4 \
-    google-cloud-bigquery==3.17.2
+    google-cloud-bigquery==3.17.2 \
+    "astronomer-cosmos[dbt-bigquery]>=1.6,<2.0"
 
 # Set environment variable for BigQuery auth
 ENV GOOGLE_APPLICATION_CREDENTIALS=/usr/app/keys/service_account.json
